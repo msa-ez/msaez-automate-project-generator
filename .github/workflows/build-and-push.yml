@@ -30,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/uengineysw/msaez-automate-project-generator
+          images: ghcr.io/msa-ez/msaez-automate-project-generator
           tags: |
             type=ref,event=tag
             type=semver,pattern={{version}}

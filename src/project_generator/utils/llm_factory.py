@@ -36,7 +36,7 @@ def _chat_overrides() -> dict:
 def create_chat_llm(**kwargs: Any):
     """langchain_openai.ChatOpenAI 인스턴스 생성.
 
-    PGPT_BASE_URL/PGPT_API_KEY가 설정돼 있으면 해당 게이트웨이로 라우팅된다.
+    OPENAI_BASE_URL/OPENAI_API_KEY가 설정돼 있으면 해당 게이트웨이로 라우팅된다.
     호출자가 base_url/api_key를 명시하면 그 값이 우선한다.
     """
     from langchain_openai import ChatOpenAI

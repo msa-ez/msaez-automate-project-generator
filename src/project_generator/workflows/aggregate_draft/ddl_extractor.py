@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, TypedDict
 from datetime import datetime
-from langchain_openai import ChatOpenAI
 import json
 import re
 
 from project_generator.utils.logging_util import LoggingUtil
 from project_generator.utils.refs_trace_util import RefsTraceUtil
+from project_generator.utils.llm_factory import create_chat_llm
 
 
 class DDLExtractorState(TypedDict):
@@ -24,7 +24,7 @@ class DDLExtractor:
     """
 
     def __init__(self):
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",
             temperature=0,
             streaming=False,

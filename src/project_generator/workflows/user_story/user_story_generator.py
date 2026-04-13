@@ -4,7 +4,6 @@ RAG를 활용한 User Story 자동 생성
 """
 from typing import TypedDict, List, Dict, Annotated
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 import json
 from datetime import datetime
 import sys
@@ -17,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.workflows.common.rag_retriever import RAGRetriever
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
+from src.project_generator.utils.llm_factory import create_chat_llm
 
 
 class UserStoryState(TypedDict):
@@ -56,7 +56,7 @@ class UserStoryWorkflow:
     def __init__(self):
         self.rag_retriever = RAGRetriever()
         # ✅ Frontend와 완전히 동일한 설정 (model_kwargs 대신 직접 파라미터로)
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",
             temperature=0.3,
             top_p=1.0,  # model_kwargs → 직접 파라미터 ✅

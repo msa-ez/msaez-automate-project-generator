@@ -5,11 +5,11 @@ Assigns DDL fields to appropriate aggregates based on domain semantics
 
 from typing import TypedDict, List, Dict, Any
 from datetime import datetime
-from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 import copy
 
 from ...utils.logging_util import LoggingUtil
+from ...utils.llm_factory import create_chat_llm
 
 
 # ===== State Definition =====
@@ -38,7 +38,7 @@ class DDLFieldsGenerator:
     
     def __init__(self, model_name: str = "gpt-4.1-2025-04-14"):
         self.model_name = model_name
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model=model_name,
             temperature=0,
             streaming=False

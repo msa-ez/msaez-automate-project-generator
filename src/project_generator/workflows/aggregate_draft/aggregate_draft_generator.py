@@ -5,10 +5,10 @@ Aggregate Draft Generator Backend
 from typing import Dict, TypedDict, List
 from datetime import datetime
 import json
-from langchain_openai import ChatOpenAI
 from langchain_core.utils.function_calling import convert_to_openai_function
 from langchain_core.output_parsers import JsonOutputParser
 from project_generator.utils.logging_util import LoggingUtil
+from project_generator.utils.llm_factory import create_chat_llm
 from project_generator.systems.storage_system_factory import StorageSystemFactory
 from project_generator.utils.refs_trace_util import RefsTraceUtil
 from langgraph.graph import StateGraph, END
@@ -42,7 +42,7 @@ class AggregateDraftGenerator:
     
     def __init__(self):
         """초기화"""
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",
             temperature=0.3,
             top_p=1.0,

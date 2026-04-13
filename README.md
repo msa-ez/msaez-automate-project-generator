@@ -82,6 +82,13 @@ STORAGE_TYPE=acebase  # 또는 firebase
 # OpenAI
 OPENAI_API_KEY=sk-...
 
+# P-GPT (POSCO 내부 LLM, OpenAI 호환) — 설정 시 Chat/Responses/Models 호출이 P-GPT로 라우팅됨
+# 개발계: http://taigpt.posco.net/gpgpta01-gpt/v1
+# 운영계: http://aigpt.posco.net/gpgpta01-gpt/v1
+# 임베딩은 P-GPT가 지원하지 않으므로 OPENAI_API_KEY(OpenAI 공용)로 계속 호출됨.
+# PGPT_BASE_URL=http://taigpt.posco.net/gpgpta01-gpt/v1
+# PGPT_API_KEY=...
+
 # Server
 FLASK_PORT=2025  # Flask 서버 포트 (기본값: 2025, langgraph dev와 충돌 방지)
 IS_LOCAL_RUN=true

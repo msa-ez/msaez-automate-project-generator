@@ -4,7 +4,6 @@ DDD 원칙 기반 Bounded Context 분할 및 관계 정의
 """
 from typing import TypedDict, List, Dict, Annotated, Optional
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 import json
 import re
 from datetime import datetime
@@ -17,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.xml_util import XmlUtil
+from src.project_generator.utils.llm_factory import create_chat_llm
 
 
 class BoundedContextState(TypedDict):
@@ -171,7 +171,7 @@ class BoundedContextWorkflow:
         }
         
         # Frontend와 동일한 모델 사용
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",  # Frontend와 동일
             temperature=0.2,  # Frontend와 동일
             top_p=1.0,

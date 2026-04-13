@@ -1,10 +1,10 @@
 from typing import TypedDict, Annotated, Sequence
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.systems.storage_system_factory import StorageSystemFactory
 from src.project_generator.utils.refs_trace_util import RefsTraceUtil
+from src.project_generator.utils.llm_factory import create_chat_llm
 import json
 import re
 
@@ -126,7 +126,7 @@ def generate_sitemap(state: SiteMapState) -> SiteMapState:
         has_korean = any('\uac00' <= c <= '\ud7a3' for c in chunk_text[:500])
         language = "Korean" if has_korean else "English"
         
-        llm = ChatOpenAI(
+        llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",  # Frontend와 동일
             temperature=0.2  # Frontend와 동일
         )

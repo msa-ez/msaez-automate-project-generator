@@ -26,6 +26,7 @@ except ImportError:
 
 from src.project_generator.config import Config
 from src.project_generator.workflows.common.standard_loader import StandardLoader
+from src.project_generator.utils.llm_factory import create_embeddings
 
 
 class StandardIndexer:
@@ -88,7 +89,7 @@ class StandardIndexer:
                 try:
                     existing_store = Chroma(
                         persist_directory=str(vectorstore_path),
-                        embedding_function=OpenAIEmbeddings(model=Config.EMBEDDING_MODEL)
+                        embedding_function=create_embeddings(model=Config.EMBEDDING_MODEL)
                     )
                     existing_store.delete_collection()
                 except Exception as e:
@@ -98,7 +99,7 @@ class StandardIndexer:
             print("🔧 Initializing Vector Store...")
             self.vectorstore = Chroma(
                 persist_directory=str(self.vectorstore_path),
-                embedding_function=OpenAIEmbeddings(model=Config.EMBEDDING_MODEL)
+                embedding_function=create_embeddings(model=Config.EMBEDDING_MODEL)
             )
             
             # 문서 인덱싱
@@ -134,7 +135,7 @@ class StandardIndexer:
             
             vectorstore = Chroma(
                 persist_directory=str(self.vectorstore_path),
-                embedding_function=OpenAIEmbeddings(model=Config.EMBEDDING_MODEL)
+                embedding_function=create_embeddings(model=Config.EMBEDDING_MODEL)
             )
             collection = vectorstore._collection
             return collection.count()

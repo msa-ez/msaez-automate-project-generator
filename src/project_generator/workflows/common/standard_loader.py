@@ -45,7 +45,8 @@ except ImportError:
 from src.project_generator.config import Config
 
 try:
-    from langchain_openai import ChatOpenAI
+    from langchain_openai import ChatOpenAI  # noqa: F401 - availability check only
+    from src.project_generator.utils.llm_factory import create_chat_llm
     HAS_LLM = True
 except ImportError:
     HAS_LLM = False
@@ -80,7 +81,7 @@ class StandardLoader:
         self.llm = None
         if self.enable_llm:
             try:
-                self.llm = ChatOpenAI(
+                self.llm = create_chat_llm(
                     model=Config.DEFAULT_LLM_MODEL,
                     temperature=0.2,
                     top_p=1.0,

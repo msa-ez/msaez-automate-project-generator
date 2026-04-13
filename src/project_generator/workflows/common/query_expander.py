@@ -7,10 +7,9 @@ Query Expander
 - "Customer" → "Customer order 주문 customer_order m_odr 주문 도메인 표준 prefix"
 """
 from typing import Optional, Dict
-from langchain_openai import ChatOpenAI
-
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
+from src.project_generator.utils.llm_factory import create_chat_llm
 
 
 class QueryExpander:
@@ -21,7 +20,7 @@ class QueryExpander:
     
     def __init__(self):
         """초기화"""
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model=Config.DEFAULT_LLM_MODEL,
             temperature=0.2,
             top_p=1.0,

@@ -4,7 +4,6 @@ Bounded Context별 관련 요구사항 매핑 및 추출
 """
 from typing import TypedDict, List, Dict, Annotated
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 import json
 from datetime import datetime
 import sys
@@ -17,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.refs_trace_util import RefsTraceUtil
+from src.project_generator.utils.llm_factory import create_chat_llm
 
 
 class RequirementsMappingState(TypedDict):
@@ -74,7 +74,7 @@ class RequirementsMappingWorkflow:
             "additionalProperties": False
         }
         
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",
             temperature=0.2,
             top_p=1.0,

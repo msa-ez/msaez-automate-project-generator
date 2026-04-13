@@ -4,11 +4,11 @@ Preview Fields Generator - LangGraph Backend
 """
 from typing import TypedDict, Annotated, List, Dict, Any
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 import json
 from datetime import datetime
 from project_generator.utils.logging_util import LoggingUtil
+from project_generator.utils.llm_factory import create_chat_llm
 
 
 # ==================== Pydantic Models ====================
@@ -394,7 +394,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
         try:
             # LLM 초기화
             if not self.llm:
-                self.llm = ChatOpenAI(
+                self.llm = create_chat_llm(
                     model=self.model_name,
                     temperature=self.temperature
                 )

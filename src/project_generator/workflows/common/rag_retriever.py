@@ -41,6 +41,7 @@ except ImportError:
     print("⚠️  chromadb not installed. RAG features will be disabled.")
 
 from src.project_generator.config import Config
+from src.project_generator.utils.llm_factory import create_embeddings
 
 # 기본 유사도 임계값 (0.0~1.0)
 # 자연어 + 도메인 텍스트에서 코사인 기반으로 0.3~0.4 이하를 컷으로 쓰는 경우가 많음
@@ -294,7 +295,7 @@ class RAGRetriever:
                                 print(f"🔧 Attempting ChromaDB loading (attempt {chroma_retry + 1}/{max_chroma_retries})...")
                                 self.vectorstore = Chroma(
                                     client=chroma_client,
-                                    embedding_function=OpenAIEmbeddings(
+                                    embedding_function=create_embeddings(
                                         model=Config.EMBEDDING_MODEL
                                     )
                                 )
@@ -440,7 +441,7 @@ class RAGRetriever:
                             print(f"🔧 Attempting ChromaDB initialization (attempt {chroma_retry + 1}/{max_chroma_retries})...")
                             self.vectorstore = Chroma(
                                 client=chroma_client,
-                                embedding_function=OpenAIEmbeddings(
+                                embedding_function=create_embeddings(
                                     model=Config.EMBEDDING_MODEL
                                 )
                             )
@@ -873,7 +874,7 @@ class RAGRetriever:
                             # 명시적 클라이언트 사용
                             self.vectorstore = Chroma(
                                 client=chroma_client,
-                                embedding_function=OpenAIEmbeddings(
+                                embedding_function=create_embeddings(
                                     model=Config.EMBEDDING_MODEL
                                 )
                             )
@@ -881,7 +882,7 @@ class RAGRetriever:
                             # 기본 설정 사용
                             self.vectorstore = Chroma(
                                 persist_directory=str(self.vectorstore_path),
-                                embedding_function=OpenAIEmbeddings(
+                                embedding_function=create_embeddings(
                                     model=Config.EMBEDDING_MODEL
                                 )
                             )
@@ -1245,7 +1246,7 @@ class RAGRetriever:
                         print(f"🔧 Attempting ChromaDB initialization (attempt {chroma_retry + 1}/{max_chroma_retries})...")
                         self.vectorstore = Chroma(
                             client=chroma_client,
-                            embedding_function=OpenAIEmbeddings(
+                            embedding_function=create_embeddings(
                                 model=Config.EMBEDDING_MODEL
                             )
                         )

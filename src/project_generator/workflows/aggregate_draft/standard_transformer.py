@@ -12,7 +12,6 @@ from datetime import datetime
 import pandas as pd
 import tempfile
 import shutil
-from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser
 try:
     from langchain_core.documents import Document
@@ -20,6 +19,7 @@ except ImportError:
     from langchain.schema import Document
 
 from project_generator.utils.logging_util import LoggingUtil
+from project_generator.utils.llm_factory import create_chat_llm
 from src.project_generator.workflows.common.rag_retriever import RAGRetriever
 from src.project_generator.workflows.common.standard_rag_service import (
     StandardRAGService, StandardQuery, StandardSearchResult
@@ -134,7 +134,7 @@ class AggregateDraftStandardTransformer:
         # LLM 비활성화: 인덱싱 시 간단한 번역/키워드만 사용
         self.standard_loader = StandardLoader(enable_llm=False) if enable_rag else None
         
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model="gpt-4.1-2025-04-14",
             temperature=0.2,
             top_p=1.0,

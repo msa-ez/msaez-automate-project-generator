@@ -4,7 +4,6 @@ RequirementsSummarizer - LangGraph 워크플로우
 """
 from typing import TypedDict, List, Dict, Annotated
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 import json
 import re
 from datetime import datetime
@@ -16,6 +15,7 @@ sys.path.insert(0, str(project_root))
 
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
+from src.project_generator.utils.llm_factory import create_chat_llm
 
 class SummarizerState(TypedDict):
     """요약 생성 상태 (camelCase for Frontend compatibility)"""
@@ -37,7 +37,7 @@ class RequirementsSummarizerWorkflow:
     요구사항 요약 워크플로우
     """
     def __init__(self):
-        self.llm = ChatOpenAI(
+        self.llm = create_chat_llm(
             model=Config.DEFAULT_LLM_MODEL,
             temperature=Config.DEFAULT_LLM_TEMPERATURE,
             top_p=1.0,

@@ -79,17 +79,10 @@ pip install -e .
 # Storage Type (firebase 또는 acebase)
 STORAGE_TYPE=acebase  # 또는 firebase
 
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# OpenAI 호환 LLM 게이트웨이 (예: POSCO P-GPT)
-# 설정 시 Chat/Responses/Models 호출이 게이트웨이로 라우팅됨. 채팅용 키는
-# PGPT_API_KEY가 있으면 우선, 없으면 OPENAI_API_KEY가 사용됨.
-# 임베딩은 자동으로 OpenAI 공용(api.openai.com)으로 격리됨.
-# 개발계: http://taigpt.posco.net/gpgpta01-gpt/v1
-# 운영계: http://aigpt.posco.net/gpgpta01-gpt/v1
-# OPENAI_BASE_URL=http://taigpt.posco.net/gpgpta01-gpt/v1
-# PGPT_API_KEY=...
+# OpenAI (표준 SDK 환경변수 그대로 사용)
+OPENAI_API_KEY=sk-...         # 게이트웨이 사용 시에는 게이트웨이 발급 키로 교체
+# OPENAI_BASE_URL=http://taigpt.posco.net/gpgpta01-gpt/v1   # P-GPT 게이트웨이 (선택)
+# OPENAI_EMBEDDING_API_KEY=sk-...                           # 게이트웨이 사용 시 임베딩용 실제 OpenAI 키 (필수)
 
 # Server
 FLASK_PORT=2025  # Flask 서버 포트 (기본값: 2025, langgraph dev와 충돌 방지)

@@ -2,8 +2,9 @@
 LLM/Embedding 팩토리.
 
 모든 ChatOpenAI/OpenAIEmbeddings 생성을 이 모듈을 통해서 하면
-OPENAI_BASE_URL (+ PGPT_API_KEY 또는 OPENAI_API_KEY) 환경변수만으로 POSCO
-내부 P-GPT 같은 OpenAI 호환 게이트웨이로 자동 라우팅된다.
+OPENAI_BASE_URL + OPENAI_API_KEY 환경변수만으로 POSCO 내부 P-GPT 같은
+OpenAI 호환 게이트웨이로 자동 라우팅된다. (표준 openai SDK 컨벤션 그대로)
+게이트웨이 사용 시 임베딩용 키는 OPENAI_EMBEDDING_API_KEY로 별도 지정한다.
 
 P-GPT는 Chat Completions / Responses / Models만 지원하고 Embeddings는 미지원이다.
 openai SDK가 `OPENAI_BASE_URL`을 기본값으로 읽어 임베딩까지 그쪽으로 보내므로,

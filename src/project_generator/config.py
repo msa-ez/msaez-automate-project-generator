@@ -168,20 +168,20 @@ class Config:
     DEFAULT_LLM_TEMPERATURE = float(os.getenv('DEFAULT_LLM_TEMPERATURE', '0.2'))  # Frontend와 동일
 
     # OpenAI 호환 LLM 게이트웨이 설정 (예: POSCO P-GPT)
-    # OPENAI_BASE_URL이 설정되면 Chat/Responses/Models 호출이 해당 게이트웨이로 라우팅됨.
-    # 임베딩은 P-GPT가 지원하지 않으므로 OpenAI 공용 API를 계속 사용한다.
+    # 표준 openai SDK 환경변수 이름을 그대로 사용한다:
+    #   OPENAI_BASE_URL — 설정 시 Chat/Responses/Models 호출이 해당 게이트웨이로 라우팅
+    #   OPENAI_API_KEY  — LLM 인증 키 (게이트웨이 사용 시에는 P-GPT 발급 키)
     #   OPENAI_BASE_URL 예) http://taigpt.posco.net/gpgpta01-gpt/v1  (개발)
     #                       http://aigpt.posco.net/gpgpta01-gpt/v1   (운영)
-    #   채팅용 키는 PGPT_API_KEY가 있으면 우선, 없으면 OPENAI_API_KEY fallback.
+    # 임베딩은 P-GPT 미지원이라 OpenAI 공용(api.openai.com)으로 자동 격리되며,
+    # 이 때는 OPENAI_EMBEDDING_API_KEY(진짜 OpenAI 키)를 별도로 반드시 설정해야 한다.
     @staticmethod
     def get_llm_base_url() -> str:
         return os.getenv('OPENAI_BASE_URL', '').strip() or None
 
     @staticmethod
     def get_llm_api_key() -> str:
-        return (os.getenv('PGPT_API_KEY', '').strip()
-                or os.getenv('OPENAI_API_KEY', '').strip()
-                or None)
+        return os.getenv('OPENAI_API_KEY', '').strip() or None
 
     @staticmethod
     def is_pgpt_enabled() -> bool:
@@ -192,7 +192,13 @@ class Config:
     # 엉뚱한 곳으로 보내므로, 임베딩은 반드시 명시적 base_url을 넘긴다.
     @staticmethod
     def get_embedding_api_key() -> str:
-        return os.getenv('OPENAI_EMBEDDING_API_KEY') or os.getenv('OPENAI_API_KEY')
+        # 게이트웨이가 켜져 있으면 OPENAI_API_KEY는 P-GPT 키이므로 쓰지 않는다.
+        emb = os.getenv('OPENAI_EMBEDDING_API_KEY', '').strip()
+        if emb:
+            return emb
+        if Config.get_llm_base_url():
+            return None  # 게이트웨이 사용 중 → 전용 키 필수
+        return os.getenv('OPENAI_API_KEY', '').strip() or None
 
     @staticmethod
     def get_embedding_base_url() -> str:

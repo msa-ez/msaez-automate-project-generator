@@ -82,11 +82,13 @@ STORAGE_TYPE=acebase  # 또는 firebase
 # OpenAI
 OPENAI_API_KEY=sk-...
 
-# P-GPT (POSCO 내부 LLM, OpenAI 호환) — 설정 시 Chat/Responses/Models 호출이 P-GPT로 라우팅됨
+# OpenAI 호환 LLM 게이트웨이 (예: POSCO P-GPT)
+# 설정 시 Chat/Responses/Models 호출이 게이트웨이로 라우팅됨. 채팅용 키는
+# PGPT_API_KEY가 있으면 우선, 없으면 OPENAI_API_KEY가 사용됨.
+# 임베딩은 자동으로 OpenAI 공용(api.openai.com)으로 격리됨.
 # 개발계: http://taigpt.posco.net/gpgpta01-gpt/v1
 # 운영계: http://aigpt.posco.net/gpgpta01-gpt/v1
-# 임베딩은 P-GPT가 지원하지 않으므로 OPENAI_API_KEY(OpenAI 공용)로 계속 호출됨.
-# PGPT_BASE_URL=http://taigpt.posco.net/gpgpta01-gpt/v1
+# OPENAI_BASE_URL=http://taigpt.posco.net/gpgpta01-gpt/v1
 # PGPT_API_KEY=...
 
 # Server

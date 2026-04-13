@@ -167,28 +167,39 @@ class Config:
     DEFAULT_LLM_MODEL = os.getenv('DEFAULT_LLM_MODEL', 'gpt-4o')  # OpenAI 최신 모델
     DEFAULT_LLM_TEMPERATURE = float(os.getenv('DEFAULT_LLM_TEMPERATURE', '0.2'))  # Frontend와 동일
 
-    # P-GPT (POSCO 내부 LLM, OpenAI 호환 API) 설정
-    # 설정되면 Chat/Responses/Models 호출이 P-GPT 게이트웨이로 라우팅됨.
+    # OpenAI 호환 LLM 게이트웨이 설정 (예: POSCO P-GPT)
+    # OPENAI_BASE_URL이 설정되면 Chat/Responses/Models 호출이 해당 게이트웨이로 라우팅됨.
     # 임베딩은 P-GPT가 지원하지 않으므로 OpenAI 공용 API를 계속 사용한다.
-    #   PGPT_BASE_URL 예) http://taigpt.posco.net/gpgpta01-gpt/v1  (개발)
-    #                     http://aigpt.posco.net/gpgpta01-gpt/v1   (운영)
+    #   OPENAI_BASE_URL 예) http://taigpt.posco.net/gpgpta01-gpt/v1  (개발)
+    #                       http://aigpt.posco.net/gpgpta01-gpt/v1   (운영)
+    #   채팅용 키는 PGPT_API_KEY가 있으면 우선, 없으면 OPENAI_API_KEY fallback.
     @staticmethod
-    def get_pgpt_base_url() -> str:
-        return os.getenv('PGPT_BASE_URL', '').strip() or None
+    def get_llm_base_url() -> str:
+        return os.getenv('OPENAI_BASE_URL', '').strip() or None
 
     @staticmethod
-    def get_pgpt_api_key() -> str:
-        return os.getenv('PGPT_API_KEY', '').strip() or None
+    def get_llm_api_key() -> str:
+        return (os.getenv('PGPT_API_KEY', '').strip()
+                or os.getenv('OPENAI_API_KEY', '').strip()
+                or None)
 
     @staticmethod
     def is_pgpt_enabled() -> bool:
-        return bool(Config.get_pgpt_base_url() and Config.get_pgpt_api_key())
+        return bool(Config.get_llm_base_url() and Config.get_llm_api_key())
 
-    # 임베딩 전용 OpenAI 키/URL (P-GPT 사용 시에도 임베딩은 OpenAI로 유지)
+    # 임베딩 전용 OpenAI 키/URL (게이트웨이 사용 시에도 임베딩은 OpenAI 공용으로 유지)
+    # OPENAI_BASE_URL이 설정된 경우 openai SDK가 그걸 기본값으로 읽어 임베딩까지
+    # 엉뚱한 곳으로 보내므로, 임베딩은 반드시 명시적 base_url을 넘긴다.
     @staticmethod
     def get_embedding_api_key() -> str:
         return os.getenv('OPENAI_EMBEDDING_API_KEY') or os.getenv('OPENAI_API_KEY')
 
     @staticmethod
     def get_embedding_base_url() -> str:
-        return os.getenv('OPENAI_EMBEDDING_BASE_URL') or None
+        explicit = os.getenv('OPENAI_EMBEDDING_BASE_URL', '').strip()
+        if explicit:
+            return explicit
+        # 채팅용 게이트웨이가 켜져 있으면 임베딩은 OpenAI 공용으로 강제
+        if Config.get_llm_base_url():
+            return 'https://api.openai.com/v1'
+        return None

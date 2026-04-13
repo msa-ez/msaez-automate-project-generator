@@ -2,10 +2,12 @@
 LLM/Embedding 팩토리.
 
 모든 ChatOpenAI/OpenAIEmbeddings 생성을 이 모듈을 통해서 하면
-PGPT_BASE_URL/PGPT_API_KEY 환경변수만으로 POSCO 내부 P-GPT 게이트웨이로
-자동 라우팅된다. P-GPT는 OpenAI Chat Completions / Responses / Models API와
-호환되지만 Embeddings는 지원하지 않으므로, 임베딩은 항상 OpenAI 공용 API(또는
-OPENAI_EMBEDDING_BASE_URL로 지정한 별도 엔드포인트)로 보낸다.
+OPENAI_BASE_URL (+ PGPT_API_KEY 또는 OPENAI_API_KEY) 환경변수만으로 POSCO
+내부 P-GPT 같은 OpenAI 호환 게이트웨이로 자동 라우팅된다.
+
+P-GPT는 Chat Completions / Responses / Models만 지원하고 Embeddings는 미지원이다.
+openai SDK가 `OPENAI_BASE_URL`을 기본값으로 읽어 임베딩까지 그쪽으로 보내므로,
+임베딩은 반드시 명시적 base_url(기본: OpenAI 공용)로 격리해 호출한다.
 
 사용 예)
     from project_generator.utils.llm_factory import create_chat_llm, create_embeddings
@@ -21,8 +23,8 @@ from project_generator.config import Config
 
 def _chat_overrides() -> dict:
     overrides: dict[str, Any] = {}
-    base_url = Config.get_pgpt_base_url()
-    api_key = Config.get_pgpt_api_key()
+    base_url = Config.get_llm_base_url()
+    api_key = Config.get_llm_api_key()
     if base_url:
         overrides["base_url"] = base_url
     if api_key:
@@ -55,8 +57,9 @@ def create_raw_openai_client(**kwargs: Any):
 def create_embeddings(**kwargs: Any):
     """langchain_openai.OpenAIEmbeddings 인스턴스 생성.
 
-    P-GPT는 임베딩을 지원하지 않으므로 P-GPT 설정을 섞지 않는다.
-    OPENAI_EMBEDDING_API_KEY / OPENAI_EMBEDDING_BASE_URL로 별도 지정 가능.
+    OPENAI_BASE_URL이 P-GPT로 설정된 경우에도 임베딩은 항상 OpenAI 공용
+    엔드포인트로 보낸다(SDK 기본값 하이재킹 방지). OPENAI_EMBEDDING_API_KEY /
+    OPENAI_EMBEDDING_BASE_URL로 별도 지정 가능.
     """
     from langchain_openai import OpenAIEmbeddings
 

@@ -26,7 +26,6 @@ class TraceabilityGenerator:
 
     def __init__(self):
         self.llm = create_chat_llm(
-            model="gpt-4.1-2025-04-14",
             temperature=0,
             streaming=False
         )

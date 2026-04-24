@@ -7,6 +7,7 @@ from langgraph.graph import StateGraph, END
 from pydantic import BaseModel, Field
 import json
 from datetime import datetime
+from project_generator.config import Config
 from project_generator.utils.logging_util import LoggingUtil
 from project_generator.utils.llm_factory import create_chat_llm
 
@@ -65,8 +66,8 @@ class PreviewFieldsState(TypedDict):
 class PreviewFieldsGenerator:
     """Preview Fields 생성 워크플로우"""
     
-    def __init__(self, model_name: str = "gpt-4.1-2025-04-14", temperature: float = 0.7):
-        self.model_name = model_name
+    def __init__(self, model_name: str = None, temperature: float = 0.7):
+        self.model_name = model_name or Config.DEFAULT_LLM_MODEL
         self.temperature = temperature
         self.llm = None
         

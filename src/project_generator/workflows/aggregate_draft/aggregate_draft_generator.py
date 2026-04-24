@@ -43,7 +43,6 @@ class AggregateDraftGenerator:
     def __init__(self):
         """초기화"""
         self.llm = create_chat_llm(
-            model="gpt-4.1-2025-04-14",
             temperature=0.3,
             top_p=1.0,
             frequency_penalty=0.0,

@@ -172,7 +172,6 @@ def extract_commands_and_readmodels(state: CommandReadModelState) -> CommandRead
         }
         
         llm = create_chat_llm(
-            model="gpt-4.1-2025-04-14",  # Frontend와 동일
             temperature=0.2  # Frontend와 동일 (0.3 → 0.2)
         )
         

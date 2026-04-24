@@ -75,7 +75,6 @@ class RequirementsMappingWorkflow:
         }
         
         self.llm = create_chat_llm(
-            model="gpt-4.1-2025-04-14",
             temperature=0.2,
             top_p=1.0,
             frequency_penalty=0.0,

@@ -8,6 +8,7 @@ from datetime import datetime
 from langgraph.graph import StateGraph, END
 import copy
 
+from ...config import Config
 from ...utils.logging_util import LoggingUtil
 from ...utils.llm_factory import create_chat_llm
 
@@ -36,8 +37,8 @@ class DDLFieldsGenerator:
     Assigns DDL fields to aggregates using LangGraph workflow
     """
     
-    def __init__(self, model_name: str = "gpt-4.1-2025-04-14"):
-        self.model_name = model_name
+    def __init__(self, model_name: str = None):
+        self.model_name = model_name or Config.DEFAULT_LLM_MODEL
         self.llm = create_chat_llm(
             model=model_name,
             temperature=0,
@@ -488,7 +489,7 @@ def generate_ddl_field_assignments(
     aggregate_drafts: List[Dict[str, str]],
     all_ddl_fields: List[str],
     generator_key: str = "test",
-    model_name: str = "gpt-4.1-2025-04-14"
+    model_name: str = None
 ) -> Dict[str, Any]:
     """
     Convenience function to generate DDL field assignments

@@ -127,7 +127,6 @@ def generate_sitemap(state: SiteMapState) -> SiteMapState:
         language = "Korean" if has_korean else "English"
         
         llm = create_chat_llm(
-            model="gpt-4.1-2025-04-14",  # Frontend와 동일
             temperature=0.2  # Frontend와 동일
         )
         

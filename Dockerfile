@@ -32,10 +32,9 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 USER appuser
 
 # uv 설치 및 의존성 설치 (빌드 시점에만 네트워크 사용)
-# --frozen: uv.lock 그대로 설치, --no-dev: 개발 의존성 제외
 RUN pip install --user uv
 ENV PATH="/home/appuser/.local/bin:$PATH"
-RUN uv sync --frozen --no-dev
+RUN uv sync
 
 # Python 경로 설정
 ENV PYTHONPATH=/app/src

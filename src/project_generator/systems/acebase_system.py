@@ -73,9 +73,8 @@ class AceBaseSystem(StorageSystem):
             try:
                 self._authenticate(username, password)
             except Exception as e:
-                # 인증 실패 시에도 계속 진행 (인증이 선택적일 수 있음)
-                # INFO 레벨로 변경: 인증이 선택적이므로 WARNING은 불필요
-                LoggingUtil.info("acebase_system", f"AceBase 인증 시도 실패, 인증 없이 진행: {str(e)}")
+                # 자격증명을 명시적으로 받은 상태에서의 실패는 운영상 거의 항상 버그이므로 WARNING 이상으로 노출
+                LoggingUtil.warning("acebase_system", f"AceBase 인증 실패, 토큰 없이 진행 (이후 보호된 경로 접근 시 403 발생 가능): {str(e)}")
                 self.access_token = None
         else:
             # 인증 정보가 제공되지 않은 경우 (정상 동작)
@@ -86,35 +85,48 @@ class AceBaseSystem(StorageSystem):
     
     def _authenticate(self, username: str, password: str):
         """AceBase 인증 (선택적)"""
-        try:
-            # 여러 가능한 인증 엔드포인트 시도
-            auth_endpoints = [
-                f"{self.base_url}/auth/signin",
-                f"{self.api_url}/auth/signin",
-                f"{self.base_url}/api/auth/signin"
-            ]
-            
-            for auth_url in auth_endpoints:
+        # msa-ez/acebase 이미지의 OAuth2 라우트가 표준이며, 그 외는 호환 fallback
+        auth_endpoints = [
+            f"{self.base_url}/oauth2/{self.dbname}/signin",
+            f"{self.base_url}/auth/{self.dbname}/signin",
+            f"{self.base_url}/auth/signin",
+        ]
+
+        # 본문은 두 가지를 모두 시도: 단순형 ({username, password}) 과 acebase-client 표준형 ({method, ...})
+        body_variants = [
+            {"username": username, "password": password},
+            {"method": "account", "username": username, "password": password},
+        ]
+
+        last_error: Optional[str] = None
+        for auth_url in auth_endpoints:
+            response = None
+            for body in body_variants:
                 try:
-                    response = self.session.post(
-                        auth_url,
-                        json={"username": username, "password": password},
-                        timeout=5
-                    )
-                    if response.status_code == 200:
-                        result = response.json()
-                        self.access_token = result.get("accessToken") or result.get("access_token")
-                        if self.access_token:
-                            LoggingUtil.info("acebase_system", f"AceBase 인증 성공: {username}")
-                            return
-                except requests.exceptions.RequestException:
+                    response = self.session.post(auth_url, json=body, timeout=5)
+                except requests.exceptions.RequestException as e:
+                    last_error = f"{auth_url} body={list(body.keys())} → {e}"
+                    response = None
                     continue
-            
-            # 모든 엔드포인트 실패 - 인증 없이 진행
-            raise Exception("인증 엔드포인트를 찾을 수 없습니다. 인증 없이 진행합니다.")
-        except Exception as e:
-            # 인증 실패는 예외로 전파하지 않음 (선택적 인증)
-            raise
+                if response.status_code == 200:
+                    break  # 200 받은 body 사용
+                last_error = f"{auth_url} body={list(body.keys())} → HTTP {response.status_code}"
+
+            if response is None or response.status_code != 200:
+                continue
+
+            try:
+                result = response.json()
+            except ValueError:
+                last_error = f"{auth_url} → 200 응답이지만 JSON 파싱 실패"
+                continue
+            self.access_token = result.get("accessToken") or result.get("access_token")
+            if self.access_token:
+                LoggingUtil.info("acebase_system", f"AceBase 인증 성공: {username} (endpoint={auth_url})")
+                return
+            last_error = f"{auth_url} → 200 응답이지만 토큰 키 없음: {result}"
+
+        raise RuntimeError(f"AceBase signin 실패: {last_error}")
     
     @classmethod
     def initialize(cls, host: str = None, port: int = None, dbname: str = None,

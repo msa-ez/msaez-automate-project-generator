@@ -13,7 +13,6 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.project_generator.workflows.common.rag_retriever import RAGRetriever
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
@@ -54,8 +53,10 @@ class UserStoryWorkflow:
     """
     
     def __init__(self):
-        self.rag_retriever = RAGRetriever()
-        # ✅ Frontend와 완전히 동일한 설정 (model_kwargs 대신 직접 파라미터로)
+        # RAGRetriever 는 더 이상 사용하지 않음. 생성자에서 만드는 것만으로도
+        # _initialize_vectorstore 가 query="test" 로 similarity_search 를 돌려
+        # 임베딩 API 호출 1회를 유발하므로(POSCO 환경에서 외부 OpenAI 차단 시 hang)
+        # 인스턴스 자체를 만들지 않는다. 검색 결과는 어차피 프롬프트에 안 쓰임.
         self.llm = create_chat_llm(
             temperature=0.3,
             top_p=1.0,  # model_kwargs → 직접 파라미터 ✅

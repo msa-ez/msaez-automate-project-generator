@@ -87,36 +87,20 @@ class UserStoryWorkflow:
     
     def retrieve_rag_context(self, state: UserStoryState) -> Dict:
         """
-        Step 1: RAG로 유사 프로젝트 및 User Story 패턴 검색
+        Step 1: RAG 컨텍스트 (현재는 미사용)
+
+        generate_user_stories 의 프롬프트가 rag_context_str 을 실제로 참조하지 않으므로,
+        ChromaDB similarity_search 가 트리거하는 임베딩 호출 3회를 생략한다.
+        P-GPT 게이트웨이 환경에서 임베딩이 외부 api.openai.com 으로 강제 라우팅되어
+        방화벽에 막혀 timeout 까지 hang 되는 문제를 회피하기 위함.
         """
-        requirements = state["requirements"]
-        
-        # User Story 패턴 검색
-        user_story_patterns = self.rag_retriever.search_ddd_patterns(
-            f"User Story patterns for: {requirements}",
-            k=10
-        )
-        
-        # 유사 프로젝트 검색
-        similar_projects = self.rag_retriever.search_project_templates(
-            requirements,
-            k=5
-        )
-        
-        # 도메인 용어 검색
-        vocabulary = self.rag_retriever.search_vocabulary(requirements, k=20)
-        
         return {
-            "rag_context": {
-                "user_story_patterns": user_story_patterns,
-                "similar_projects": similar_projects,
-                "vocabulary": vocabulary
-            },
+            "rag_context": {},
             "progress": 20,
             "logs": [{
                 "timestamp": datetime.now().isoformat(),
                 "level": "info",
-                "message": f"RAG context retrieved: {len(user_story_patterns)} patterns, {len(similar_projects)} projects, {len(vocabulary)} terms"
+                "message": "RAG retrieval skipped (not consumed by user story prompts)"
             }]
         }
     

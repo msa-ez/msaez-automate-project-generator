@@ -278,18 +278,16 @@ Please generate the json in valid json format and if there's a property its valu
 """
         
         try:
-            # LLM 호출 (스트리밍 사용 - 더 완전한 응답 생성)
+            # LLM 호출 (non-streaming)
+            # POSCO P-GPT 게이트웨이는 curl 로는 SSE(stream:true) 가 200 으로 잘 동작하지만,
+            # openai SDK 가 보내는 streaming 요청에는 content-length: 0 의 깡통 404 를 돌려준다
+            # (SDK 가 자동 부착하는 Idempotency-Key / X-Stainless-* 헤더 조합에 게이트웨이
+            #  정책이 걸리는 것으로 추정). 어차피 청크를 합쳐 한 문자열로만 쓰므로 invoke 사용.
             from langchain_core.messages import HumanMessage
-            
+
             messages = [HumanMessage(content=prompt)]
-            
-            # 스트리밍으로 받아서 완전한 응답 확보
-            response_chunks = []
-            for chunk in self.llm.stream(messages):
-                if chunk.content:
-                    response_chunks.append(chunk.content)
-            
-            response = "".join(response_chunks)
+
+            response = self.llm.invoke(messages).content
             
             # 텍스트 모드일 때는 JSON 파싱 건너뛰기
             if is_text_mode:

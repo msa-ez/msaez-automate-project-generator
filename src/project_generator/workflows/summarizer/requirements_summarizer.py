@@ -135,14 +135,12 @@ Guidelines:
 """
         
         try:
+            # POSCO P-GPT 게이트웨이가 openai SDK 의 streaming 요청에 404 를 돌려주므로
+            # non-streaming(invoke) 으로 호출. 자세한 배경은 user_story_generator 참조.
             from langchain_core.messages import HumanMessage
             messages = [HumanMessage(content=prompt)]
-            
-            response_chunks = []
-            for chunk in self.llm.stream(messages):
-                if chunk.content:
-                    response_chunks.append(chunk.content)
-            response = "".join(response_chunks)
+
+            response = self.llm.invoke(messages).content
             
             response_clean = self._extract_json(response)
             result_data = json.loads(response_clean)

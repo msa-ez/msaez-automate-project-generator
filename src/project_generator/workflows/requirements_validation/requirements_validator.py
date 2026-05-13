@@ -112,6 +112,11 @@ class RequirementsValidator:
     def _build_prompt(self, line_numbered_requirements: str, previous_chunk_summary: Dict) -> List[Dict]:
         """프론트엔드와 동일한 프롬프트 생성"""
 
+        # system_prompt 끝에 붙는 언어 가이드 자리표시자. 추후 입력 언어에 맞춰
+        # 채워 넣을 수 있도록 변수로 분리해두되, 미정의로 인한 NameError 방지를 위해
+        # 기본값을 빈 문자열로 둔다.
+        language_guide = ""
+
         system_prompt = """You are an Expert Business Analyst & Domain-Driven Design Specialist.
 
 Your goal is to transform business requirements into a comprehensive Big Picture Event Storming model that accurately represents the domain's business processes, actors, and event flows.
@@ -133,8 +138,9 @@ With extensive experience in business process analysis and domain-driven design,
 3. Flow Completeness: Include both happy path scenarios AND exception flows
 4. State Change Focus: Generate events ONLY for business-significant state changes. Do NOT create events for read-only operations
 5. No Omissions: Do not skip or summarize any business processes
-6. Naming Convention: Use PascalCase and past participle form (e.g., OrderPlaced, PaymentProcessed)
+6. Naming Convention: Use PascalCase and past participle form for the `name` field (e.g., OrderPlaced, PaymentProcessed)
 7. Primary Business Actions: Focus on the primary business action rather than secondary consequences
+8. Display Name Language: The `displayName` field MUST ALWAYS be written in Korean (한국어), regardless of the language of the input requirements (e.g., "주문 완료됨", "결제 처리됨"). All other natural-language fields (`description`, `reasonOfRecommendedBoundedContextsNumber`) may follow the input language.
 
 **Actor Identification Strategy:**
 1. Event Ownership: Group events by their responsible actors (human or system)
@@ -183,7 +189,7 @@ With extensive experience in business process analysis and domain-driven design,
         "events": [
             {
                 "name": "(EventName in PascalCase & Past Participle)",
-                "displayName": "(Natural language display name)",
+                "displayName": "(Natural language display name in Korean / 한국어, e.g., '주문 완료됨')",
                 "actor": "(ActorName - must match an actor from actors array)",
                 "level": (number: event sequence priority starting from 1),
                 "description": "(Detailed description of what happened and why)",
@@ -201,7 +207,7 @@ With extensive experience in business process analysis and domain-driven design,
             }
         ]
     }
-}"""
+}""" + language_guide
 
         # Previous chunk context 생성
         context_info = self._build_previous_chunk_context(previous_chunk_summary)

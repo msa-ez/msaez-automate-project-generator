@@ -129,6 +129,11 @@ class JobUtil:
         if job_id.startswith('req-valid-'):
             req_valid_pattern = re.compile(r'^req-valid-\d{13,}-[a-z0-9]+$')
             return bool(req_valid_pattern.match(job_id))
+
+        # Event Flow Stitcher Job ID 형식 체크 (flow-stitch-{timestamp}-{random})
+        if job_id.startswith('flow-stitch-'):
+            flow_stitch_pattern = re.compile(r'^flow-stitch-\d{13,}-[a-z0-9]+$')
+            return bool(flow_stitch_pattern.match(job_id))
         
         # EventStorming UUID 형식 검증
         # 1. 기본 길이 검증 (정확히 36자: 32개 16진수 + 4개 하이픈)

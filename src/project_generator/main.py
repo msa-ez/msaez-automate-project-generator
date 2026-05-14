@@ -36,6 +36,7 @@ from project_generator.workflows.aggregate_draft.traceability_generator import T
 from project_generator.workflows.aggregate_draft.ddl_extractor import DDLExtractor
 from project_generator.workflows.aggregate_draft.standard_transformer import AggregateDraftStandardTransformer
 from project_generator.workflows.requirements_validation.requirements_validator import RequirementsValidator
+from project_generator.workflows.requirements_validation.event_flow_stitcher import EventFlowStitcher
 
 # 전역 job_manager 인스턴스
 _current_job_manager: DecentralizedJobManager = None
@@ -92,7 +93,7 @@ async def main():
             _current_job_manager = job_manager
             
             # 감시할 namespace 목록
-            monitored_namespaces = ['user_story_generator', 'summarizer', 'bounded_context', 'command_readmodel_extractor', 'sitemap_generator', 'requirements_mapper', 'aggregate_draft_generator', 'preview_fields_generator', 'ddl_fields_generator', 'traceability_generator', 'standard_transformer', 'ddl_extractor', 'requirements_validator']
+            monitored_namespaces = ['user_story_generator', 'summarizer', 'bounded_context', 'command_readmodel_extractor', 'sitemap_generator', 'requirements_mapper', 'aggregate_draft_generator', 'preview_fields_generator', 'ddl_fields_generator', 'traceability_generator', 'standard_transformer', 'ddl_extractor', 'requirements_validator', 'requirements_flow_stitcher']
             
             if Config.is_local_run():
                 tasks.append(asyncio.create_task(job_manager.start_job_monitoring(monitored_namespaces)))
@@ -1611,15 +1612,102 @@ async def process_requirements_validator_job(job_id: str, complete_job_func: cal
     finally:
         complete_job_func()
 
+
+async def process_requirements_flow_stitcher_job(job_id: str, complete_job_func: callable):
+    """
+    Requirements Flow Stitcher Job 처리.
+    청크 모드로 추출된 events 의 nextEvents/level 을 글로벌 컨텍스트로 보강.
+    """
+    try:
+        LoggingUtil.info("main", f"🚀 Event flow stitching 시작: {job_id}")
+
+        job_path = f'jobs/requirements_flow_stitcher/{job_id}'
+        job_data = await asyncio.to_thread(
+            StorageSystemFactory.instance().get_data,
+            job_path
+        )
+
+        if not job_data:
+            LoggingUtil.error("main", f"Job 데이터 없음: {job_id}")
+            return
+
+        state = job_data.get('state', {})
+        inputs_data = state.get('inputs', {})
+
+        input_data = {
+            'events': inputs_data.get('events', []),
+            'actors': inputs_data.get('actors', []),
+            'requirements': inputs_data.get('requirements', ''),
+        }
+
+        stitcher = EventFlowStitcher()
+        result = await asyncio.to_thread(stitcher.generate, input_data)
+
+        output_path = f'{job_path}/state/outputs'
+        output = {
+            'type': result.get('type', 'FLOW_STITCH_RESULT'),
+            'content': result.get('content', {}),
+            'progress': 100,
+            'logs': [{
+                'timestamp': datetime.now().isoformat(),
+                'level': 'info',
+                'message': 'Event flow stitching completed'
+            }]
+        }
+        if result.get('error'):
+            output['error'] = result['error']
+
+        sanitized = StorageSystemFactory.instance().sanitize_data_for_storage(output)
+        await asyncio.to_thread(
+            StorageSystemFactory.instance().set_data,
+            output_path,
+            sanitized
+        )
+
+        # isCompleted 별도 저장 (이벤트 순서 보장)
+        await asyncio.sleep(0.1)
+        await asyncio.to_thread(
+            StorageSystemFactory.instance().update_data,
+            output_path,
+            {'isCompleted': True}
+        )
+
+        req_path = f'requestedJobs/requirements_flow_stitcher/{job_id}'
+        await asyncio.to_thread(
+            StorageSystemFactory.instance().delete_data,
+            req_path
+        )
+
+        LoggingUtil.info("main", f"🎉 Event flow stitching 완료: {job_id}")
+        LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
+
+    except Exception as e:
+        LoggingUtil.exception("main", f"Event flow stitching 오류: {job_id}", e)
+        try:
+            error_output = {
+                'isFailed': True,
+                'isCompleted': True,
+                'progress': 100,
+                'error': str(e),
+                'logs': [{'timestamp': datetime.now().isoformat(), 'level': 'error', 'message': str(e)}]
+            }
+            output_path = f'jobs/requirements_flow_stitcher/{job_id}/state/outputs'
+            StorageSystemFactory.instance().set_data(output_path, error_output)
+        except Exception as save_error:
+            LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
+    finally:
+        complete_job_func()
+
+
 async def process_job_async(job_id: str, complete_job_func: callable):
     """비동기 Job 처리 함수 (Job ID prefix로 라우팅)"""
-    
+
     try:
         LoggingUtil.debug("main", f"Job 시작: {job_id}")
         if not JobUtil.is_valid_job_id(job_id):
             LoggingUtil.warning("main", f"Job 처리 오류: {job_id}, 유효하지 않음")
             return
-        
+
         # Job 타입별 라우팅 (각 함수에서 finally 블록으로 complete_job_func 호출)
         if job_id.startswith("usgen-"):
             await process_user_story_job(job_id, complete_job_func)
@@ -1647,6 +1735,8 @@ async def process_job_async(job_id: str, complete_job_func: callable):
             await process_ddl_extractor_job(job_id, complete_job_func)
         elif job_id.startswith("req-valid-"):
             await process_requirements_validator_job(job_id, complete_job_func)
+        elif job_id.startswith("flow-stitch-"):
+            await process_requirements_flow_stitcher_job(job_id, complete_job_func)
         else:
             LoggingUtil.warning("main", f"지원하지 않는 Job 타입: {job_id}")
             

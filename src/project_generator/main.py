@@ -211,19 +211,23 @@ async def process_summarizer_job(job_id: str, complete_job_func: callable):
     except Exception as e:
         error_occurred = e
         LoggingUtil.exception("main", f"Summarizer Job 처리 오류: {job_id}", e)
-        
+
         # 실패 상태 저장
+        # ⚠️ isFailed=True 를 반드시 함께 써야 함. 프론트(SummarizerLangGraphProxy)는
+        # isFailed===true 일 때만 onFailed 콜백을 호출하고, 그 외에는 isCompleted===true 를 기다림.
+        # 둘 다 안 켜지면 프론트 Promise 가 영구 대기(=무한 루프처럼 보임)함.
         try:
             error_output = {
                 "summarizedRequirements": [],
                 "isCompleted": False,
+                "isFailed": True,
                 "error": str(e),
                 "logs": [{
                     "timestamp": datetime.now().isoformat(),
                     "message": f"오류: {str(e)}"
                 }]
             }
-            
+
             output_path = f'jobs/summarizer/{job_id}/state/outputs'
             await asyncio.to_thread(
                 StorageSystemFactory.instance().set_data,
@@ -273,22 +277,38 @@ async def process_user_story_job(job_id: str, complete_job_func: callable):
         # 결과를 Firebase에 저장 (비동기 처리)
         # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'jobs/user_story_generator/{job_id}/state/outputs'
-        
-        # 1) isCompleted 제외한 데이터 먼저 저장
-        result_without_completed = {k: v for k, v in result.items() if k != 'isCompleted'}
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
-            output_path,
-            result_without_completed
-        )
-        
-        # 2) 짧은 대기 후 isCompleted 저장 (이벤트 순서 보장)
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
-        )
+
+        # 워크플로우가 isFailed=True 또는 error 를 담아 돌려준 경우(예: 텍스트모드는 아니지만
+        # 내부 에러를 비치명적으로 처리한 경로 등) success-path 가 isCompleted=True 로
+        # 강제 덮어쓰지 않도록 가드. 현재 user_story_generator.run() 은 예외를 그대로 raise 하므로
+        # 이 분기에 진입할 일은 거의 없지만, 다른 노드/검증 단계에서 비치명 에러가 들어올 수 있음.
+        is_failed_result = bool(result.get('isFailed')) or bool(result.get('error'))
+
+        if is_failed_result:
+            error_payload = dict(result)
+            error_payload['isFailed'] = True
+            error_payload.setdefault('isCompleted', False)
+            await asyncio.to_thread(
+                StorageSystemFactory.instance().set_data,
+                output_path,
+                error_payload
+            )
+        else:
+            # 1) isCompleted 제외한 데이터 먼저 저장
+            result_without_completed = {k: v for k, v in result.items() if k != 'isCompleted'}
+            await asyncio.to_thread(
+                StorageSystemFactory.instance().set_data,
+                output_path,
+                result_without_completed
+            )
+
+            # 2) 짧은 대기 후 isCompleted 저장 (이벤트 순서 보장)
+            await asyncio.sleep(0.1)
+            await asyncio.to_thread(
+                StorageSystemFactory.instance().update_data,
+                output_path,
+                {'isCompleted': True}
+            )
         
         # requestedJob 삭제
         req_path = f'requestedJobs/user_story_generator/{job_id}'

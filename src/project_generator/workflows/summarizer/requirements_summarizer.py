@@ -42,7 +42,11 @@ class RequirementsSummarizerWorkflow:
             temperature=Config.DEFAULT_LLM_TEMPERATURE,
             top_p=1.0,
             frequency_penalty=0.0,
-            presence_penalty=0.0
+            presence_penalty=0.0,
+            # P-GPT 게이트웨이가 간헐적으로 200으로 연결만 잡고 응답 본문을 안 보내는 경우
+            # invoke 가 영원히 read 에서 block 됨. 이러면 main 의 except 가 안 타서
+            # isFailed=True 가 기록되지 않고 프론트가 영구 대기함. hard timeout 으로 강제 종료.
+            timeout=180
         )
         self.workflow = self._build_workflow()
 
@@ -94,8 +98,33 @@ class RequirementsSummarizerWorkflow:
         has_korean = any('\uac00' <= c <= '\ud7a3' for c in requirements[:500])
         language = "Korean" if has_korean else "English"
 
-        # 라인 수 계산
-        total_lines = len(requirements.splitlines())
+        # 입력 청크에 포함된 실제 라인 번호 범위를 파싱
+        # (청크가 startLine > 1 인 경우 "1 to N" 으로 잘못 알려주면 LLM 이 1..N 범위로 hallucinate 함)
+        line_prefix_re = re.compile(r'^\s*(\d+)\s*:', re.MULTILINE)
+        line_numbers = [int(m.group(1)) for m in line_prefix_re.finditer(requirements)]
+        if line_numbers:
+            min_line = min(line_numbers)
+            max_line = max(line_numbers)
+        else:
+            min_line = 1
+            max_line = max(1, len(requirements.splitlines()))
+
+        # iteration 이 올라갈수록 더 공격적으로 컨솔리데이션 하도록 가이드 강화
+        if iteration <= 1:
+            consolidation_guidance = "The final summary should be less than 50% of the original text's length."
+        elif iteration == 2:
+            consolidation_guidance = (
+                "This is iteration 2 of recursive summarization. Be more aggressive: "
+                "the final summary MUST be less than 35% of the original text's length. "
+                "Merge any related items that can plausibly be grouped."
+            )
+        else:
+            consolidation_guidance = (
+                f"This is iteration {iteration} of recursive summarization — previous passes did not shrink the text enough. "
+                "Be very aggressive: the final summary MUST be less than 25% of the original text's length. "
+                "Collapse closely-related groups into single high-level statements. "
+                "Prefer fewer, broader summary sentences over many narrow ones."
+            )
 
         prompt = f"""An AI agent that summarizes the following requirements by grouping related items and tracking source line references.
 
@@ -124,9 +153,9 @@ Output in the following JSON format:
 }}
 
 Guidelines:
-- CRITICAL: The 'source_lines' array must only contain line numbers that are present in the 'Requirements with line numbers' section. For the provided text, the valid range of line numbers is from 1 to {total_lines}. Do not under any circumstances invent or use line numbers outside this range.
+- CRITICAL: The 'source_lines' array must only contain line numbers that are present in the 'Requirements with line numbers' section. For the provided text, the valid range of line numbers is from {min_line} to {max_line}. Do not under any circumstances invent or use line numbers outside this range.
 - CRITICAL: Avoid rephrasing single lines. The goal is to produce significantly fewer summary sentences than the number of input lines by grouping related topics.
-- The final summary should be less than 50% of the original text's length.
+- {consolidation_guidance}
 - Each summary sentence must reference multiple source lines where possible.
 - Ensure all important functional requirements from the original text are covered in the summaries.
 - DDL statements should be ignored and not included in the summary.
@@ -154,12 +183,10 @@ Guidelines:
             }
         except Exception as e:
             LoggingUtil.exception("SummarizerWorkflow", "요약 생성 중 오류 발생", e)
-            return {
-                "summarizedRequirements": [],
-                "error": str(e),
-                "progress": 50,
-                "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": f"요약 생성 오류: {str(e)}"}]
-            }
+            # 호출자(main.process_summarizer_job)가 isFailed=True 를 쓸 수 있도록 그대로 전파.
+            # 과거에는 빈 리스트를 반환하면서 isCompleted=True 로 마무리되어, 청크 데이터가 묵음 손실되고
+            # 프론트는 "성공인데 결과가 비어있는" 상태를 받았음.
+            raise
 
     def finalize(self, state: SummarizerState) -> Dict:
         """

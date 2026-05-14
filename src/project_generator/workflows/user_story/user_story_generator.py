@@ -18,22 +18,30 @@ from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
 
 
-class UserStoryState(TypedDict):
+class UserStoryState(TypedDict, total=False):
     """UserStory 생성 상태 (camelCase for Frontend compatibility)"""
     # Inputs
     requirements: str                    # 입력 요구사항
     bounded_contexts: List[Dict]         # Bounded Context 정보 (선택)
-    
+
+    # 재구성(Recursive) 모드: 이전 청크에서 누적된 결과를 받아 중복 방지
+    # ⚠️ 과거에는 TypedDict 와 run() initial_state 양쪽에 없어서 generate_user_stories
+    # 가 항상 빈 리스트로 읽어왔음 → 청크별 결과가 누적되지 않고 매번 처음처럼 동작함.
+    existingActors: List[Dict]
+    existingUserStories: List[Dict]
+    existingBusinessRules: List[Dict]
+    existingBoundedContexts: List[Dict]
+
     # RAG Context
     rag_context: Dict                   # RAG 검색 결과
-    
+
     # Outputs
     userStories: List[Dict]             # 생성된 User Stories (camelCase)
     actors: List[Dict]                  # Actors
     businessRules: List[Dict]           # Business Rules
     boundedContexts: List[Dict]         # Bounded Contexts
     textResponse: str                   # 텍스트 모드 응답 (선택)
-    
+
     # Metadata
     progress: int                       # 진행률 (0-100)
     logs: Annotated[List[Dict], "append"]  # 로그 (append only)
@@ -63,6 +71,9 @@ class UserStoryWorkflow:
             frequency_penalty=0.0,  # model_kwargs → 직접 파라미터 ✅
             presence_penalty=0.0,  # model_kwargs → 직접 파라미터 ✅
             # max_tokens 설정 안 함 (Frontend도 없음)
+            # P-GPT 게이트웨이가 간헐적으로 응답을 반환하지 않는 경우가 있어 hard timeout 부여.
+            # 청크 1개당 LLM 1콜이라 180s 면 충분. 초과 시 예외 → 프론트는 onFailed 받고 재시도 가능.
+            timeout=180,
             verbose=False
         )
         self.workflow = self._build_workflow()
@@ -330,22 +341,11 @@ Please generate the json in valid json format and if there's a property its valu
             }
             
         except Exception as e:
-            error_msg = f"Failed to generate user stories: {str(e)}"
-            LoggingUtil.error("UserStoryWorkflow", error_msg)
-            
-            return {
-                "userStories": [],
-                "actors": [],
-                "businessRules": [],
-                "boundedContexts": [],
-                "error": error_msg,
-                "progress": 70,
-                "logs": [{
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "error",
-                    "message": error_msg
-                }]
-            }
+            # ⚠️ 과거에는 빈 결과를 반환하면서 그래프가 계속 진행돼 finalize 가
+            # isCompleted=True 로 마무리했음. 프론트는 "성공인데 결과 비어있음"을 받고
+            # 청크 데이터를 통째로 잃었음. 호출자가 isFailed 로 기록할 수 있도록 전파.
+            LoggingUtil.error("UserStoryWorkflow", f"Failed to generate user stories: {str(e)}")
+            raise
     
     def validate_user_stories(self, state: UserStoryState) -> Dict:
         """
@@ -566,6 +566,12 @@ Please generate the json in valid json format and if there's a property its valu
         initial_state: UserStoryState = {
             "requirements": inputs.get("requirements", ""),
             "bounded_contexts": inputs.get("bounded_contexts", []),
+            # ✅ 재구성 모드: 이전 청크 누적 결과를 그래프 노드까지 전달.
+            # 키 이름은 프론트(RecursiveUserStoryGenerator)와 일치시킨 camelCase.
+            "existingActors": inputs.get("existingActors", []),
+            "existingUserStories": inputs.get("existingUserStories", []),
+            "existingBusinessRules": inputs.get("existingBusinessRules", []),
+            "existingBoundedContexts": inputs.get("existingBoundedContexts", []),
             "rag_context": {},
             "userStories": [],
             "actors": [],
@@ -576,28 +582,11 @@ Please generate the json in valid json format and if there's a property its valu
             "isCompleted": False,
             "error": ""
         }
-        
-        try:
-            result = self.workflow.invoke(initial_state)
-            
-            # 결과는 이미 camelCase 형식
-            return result
-        except Exception as e:
-            error_msg = f"Workflow execution failed: {str(e)}"
-            LoggingUtil.error("UserStoryWorkflow", error_msg)
-            return {
-                "userStories": [],
-                "boundedContexts": [],
-                "ragContext": {},
-                "progress": 0,
-                "logs": [{
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "error",
-                    "message": error_msg
-                }],
-                "isCompleted": False,
-                "isFailed": True,
-                "error": error_msg,
-                "requirements": inputs.get("requirements", "")
-            }
+
+        # 예외는 호출자(main.process_user_story_job)가 잡아서 isFailed=True 로 기록한다.
+        # 과거에는 여기서 잡아 { isFailed: True, isCompleted: False } dict 를 반환했는데,
+        # 호출자 success-path 가 그 결과의 isCompleted 를 강제로 True 로 덮어쓰면서
+        # 프론트 watcher 가 isFailed/isCompleted 둘 다 True 인 레이스 상태를 받음.
+        # 그래서 그냥 raise 해서 호출자 except 경로 한 곳에서만 실패를 처리하도록 함.
+        return self.workflow.invoke(initial_state)
 

@@ -61,11 +61,17 @@ class AceBaseSystem(StorageSystem):
         self.api_url = f"{self.base_url}/data/{self.dbname}"
         
         # 세션 설정 (재시도 로직 포함)
+        # total=5 + backoff_factor=0.8 → 누적 ~12s 까지 재시도. AceBase 가 RST 던질 때
+        # 짧은 backoff(0.3) 로는 회복할 시간이 안 나서 application-level 까지 흘러옴.
+        # POST/PUT 은 기본 allowed_methods 에 없으므로 명시 — set_data, update_data 가 retry 되게.
         self.session = requests.Session()
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=0.3,
+            total=5,
+            backoff_factor=0.8,
             status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=frozenset(["GET", "HEAD", "OPTIONS", "DELETE", "POST", "PUT", "PATCH"]),
+            # ConnectionResetError(104) 같은 transient connection error 도 read retry 로 잡힘.
+            raise_on_status=False,
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
@@ -229,6 +235,20 @@ class AceBaseSystem(StorageSystem):
         """
         try:
             return operation_func(*args, **kwargs)
+        except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError) as conn_err:
+            # urllib3 의 Retry 가 다 소진된 뒤에도 RST/connection abort 가 계속되면 여기로 옴.
+            # 서버가 한순간 부하 폭주로 RST 던지더라도 ~2 초 뒤엔 회복하는 경우가 많아
+            # application-level 에서 짧게 한 번 더 시도.
+            LoggingUtil.warning(
+                "acebase_system",
+                f"{operation_name}: 연결 오류 후 application-level retry (1회): {conn_err}"
+            )
+            try:
+                time.sleep(2.0)
+                return operation_func(*args, **kwargs)
+            except Exception as retry_err:
+                LoggingUtil.exception("acebase_system", f"{operation_name} application-level retry 후에도 실패", retry_err)
+                return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
         except requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if e.response is not None else None
             if status_code == 404:

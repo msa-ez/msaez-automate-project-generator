@@ -177,6 +177,47 @@ async def _persist_output_with_completion(
     )
 
 
+async def _cleanup_requested_job(req_path: str, label: str, *, retries: int = 3) -> bool:
+    """requestedJobs 정리 헬퍼.
+    삭제 실패 시 재시도하고, 끝까지 실패하면 status를 completed로 내려 zombie 재클레임/재스캔을 줄인다.
+    """
+    storage = StorageSystemFactory.instance()
+
+    for attempt in range(1, retries + 1):
+        try:
+            deleted = await asyncio.to_thread(storage.delete_data, req_path)
+            if deleted:
+                return True
+            LoggingUtil.warning(
+                "main",
+                f"{label}: requested job delete returned False (attempt {attempt}/{retries}) path={req_path}"
+            )
+        except Exception as e:
+            LoggingUtil.warning(
+                "main",
+                f"{label}: requested job delete failed (attempt {attempt}/{retries}) path={req_path} err={e}"
+            )
+        await asyncio.sleep(0.2 * attempt)
+
+    # fallback: 삭제가 계속 실패하면 상태를 completed로 내려 모니터링 skip/zombie 반복을 줄인다.
+    try:
+        await asyncio.to_thread(
+            storage.update_data,
+            req_path,
+            {
+                'status': 'completed',
+                'assignedPodId': None,
+                'lastHeartbeat': None,
+                'completedAt': time.time(),
+            }
+        )
+        LoggingUtil.warning("main", f"{label}: fallback applied for requested job path={req_path}")
+        return False
+    except Exception as e:
+        LoggingUtil.warning("main", f"{label}: fallback update failed path={req_path} err={e}")
+        return False
+
+
 async def main():
     """메인 함수 - Flask 서버, Job 모니터링, 자동 스케일러 동시 시작"""
     
@@ -1053,10 +1094,9 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
         )
         LoggingUtil.info("main", f"⏱️ AggregateDraft update_data(isCompleted) elapsed_ms={int((time.monotonic() - completed_started_at) * 1000)}")
         
-        # 요청 Job 제거
+        # 요청 Job 제거 (실패 시 fallback으로 zombie 상태 반복을 완화)
         req_path = f'requestedJobs/aggregate_draft_generator/{job_id}'
-        # 삭제는 사용자 체감 완료 경로와 분리 (삭제 지연이 본 처리 완료를 막지 않도록)
-        asyncio.create_task(asyncio.to_thread(StorageSystemFactory.instance().delete_data, req_path))
+        await _cleanup_requested_job(req_path, f"AggregateDraft[{job_id}]")
         
         LoggingUtil.info("main", f"🎉 Aggregate Draft 생성 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")

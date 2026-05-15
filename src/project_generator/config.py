@@ -69,7 +69,8 @@ class Config:
     @staticmethod
     def max_concurrent_jobs() -> int:
         """단일 인스턴스에서 동시에 처리할 수 있는 최대 작업 수"""
-        return int(os.getenv('MAX_CONCURRENT_JOBS', '3'))
+        # AceBase 단일 스토리지 병목 완화를 위해 기본값은 1 (필요 시 환경변수로 상향)
+        return int(os.getenv('MAX_CONCURRENT_JOBS', '1'))
     
     @staticmethod
     def job_polling_interval() -> float:

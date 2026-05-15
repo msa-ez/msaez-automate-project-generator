@@ -980,27 +980,43 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
         options_started_at = time.monotonic()
         await asyncio.sleep(0.03)
         options = output.get('options', [])
+        options_json = json.dumps(options, ensure_ascii=False)
+        options_chunk_size = 10_000
+        options_chunks = [
+            options_json[i:i + options_chunk_size]
+            for i in range(0, len(options_json), options_chunk_size)
+        ] or [""]
 
-        # 대용량 options 단일 update_data 호출이 길게 블로킹되는 문제를 피하기 위해
-        # options/{index} 경로로 분할 저장한다.
-        per_option_elapsed = []
-        for idx, option in enumerate(options):
-            option_started_at = time.monotonic()
+        # large tree(options 배열) 대신 chunk 문자열을 별도 하위 경로에 저장
+        # 프론트는 완료 시 optionsChunks를 합쳐 복원한다.
+        await asyncio.to_thread(
+            storage.update_data,
+            output_path,
+            storage.sanitize_data_for_storage({
+                'optionsChunked': True,
+                'optionsChunkCount': len(options_chunks),
+                'optionsChunkSize': options_chunk_size
+            })
+        )
+
+        chunk_elapsed = []
+        for idx, chunk in enumerate(options_chunks):
+            chunk_started_at = time.monotonic()
             await asyncio.to_thread(
                 storage.set_data,
-                f"{output_path}/options/{idx}",
-                storage.sanitize_data_for_storage(option),
+                f"{output_path}/optionsChunks/{idx}",
+                storage.sanitize_data_for_storage({'data': chunk}),
             )
-            elapsed_ms = int((time.monotonic() - option_started_at) * 1000)
-            per_option_elapsed.append(elapsed_ms)
-            LoggingUtil.info("main", f"⏱️ AggregateDraft set_data(options/{idx}) elapsed_ms={elapsed_ms}")
-            # 저장 burst를 줄이기 위한 매우 짧은 간격
-            await asyncio.sleep(0.02)
+            elapsed_ms = int((time.monotonic() - chunk_started_at) * 1000)
+            chunk_elapsed.append(elapsed_ms)
+            if idx < 5 or idx == len(options_chunks) - 1:
+                LoggingUtil.info("main", f"⏱️ AggregateDraft set_data(optionsChunks/{idx}) elapsed_ms={elapsed_ms}")
+            await asyncio.sleep(0.01)
 
         LoggingUtil.info(
             "main",
-            f"⏱️ AggregateDraft options write total_elapsed_ms={int((time.monotonic() - options_started_at) * 1000)}, "
-            f"per_option_ms={per_option_elapsed}"
+            f"⏱️ AggregateDraft optionsChunks write total_elapsed_ms={int((time.monotonic() - options_started_at) * 1000)}, "
+            f"chunks={len(options_chunks)}, sample_chunk_ms={chunk_elapsed[:5]}"
         )
 
         # isCompleted는 마지막에 별도 저장하여 이벤트 순서 보장

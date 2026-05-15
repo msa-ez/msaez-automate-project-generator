@@ -92,6 +92,14 @@ class Config:
         return float(os.getenv('JOB_RECOVERY_CHECK_INTERVAL', '10.0'))
 
     @staticmethod
+    def aggregate_draft_write_legacy_options() -> bool:
+        """
+        Aggregate Draft 결과 저장 시 기존 프론트 호환을 위해 outputs/options를 함께 저장할지 여부.
+        성능 최적화(chunks) 적용 중 점진 배포를 위해 기본값은 true.
+        """
+        return os.getenv('AGGR_DRAFT_WRITE_LEGACY_OPTIONS', 'true').lower() == 'true'
+
+    @staticmethod
     def get_log_level() -> str:
         """환경별 로그 레벨 반환 (DEBUG, INFO, WARNING, ERROR)"""
         if Config.is_local_run():

@@ -86,6 +86,61 @@ async def _persist_output_with_completion(
     storage = StorageSystemFactory.instance()
     heavy_fields = [field for field in (heavy_fields or []) if field in output]
 
+    async def _write_heavy_field(field_name: str, value):
+        """heavy field 저장: 크기/타입 기반으로 자동 분할."""
+        field_size = _estimate_json_size_bytes(value)
+        split_threshold_bytes = 20_000
+
+        # 작거나 단순한 값은 루트 경로 부분 업데이트
+        if field_size < split_threshold_bytes or not isinstance(value, (list, dict)):
+            started_at = time.monotonic()
+            await asyncio.to_thread(
+                storage.update_data,
+                output_path,
+                storage.sanitize_data_for_storage({field_name: value})
+            )
+            elapsed_ms = int((time.monotonic() - started_at) * 1000)
+            LoggingUtil.info(
+                "main",
+                f"⏱️ {label} write heavy field='{field_name}' mode=single elapsed_ms={elapsed_ms} size={field_size}"
+            )
+            return
+
+        started_at = time.monotonic()
+        target_path = f"{output_path}/{field_name}"
+
+        # list/dict는 항목 단위로 나눠 update burst를 줄인다.
+        if isinstance(value, list):
+            for idx, item in enumerate(value):
+                await asyncio.to_thread(
+                    storage.update_data,
+                    target_path,
+                    storage.sanitize_data_for_storage({str(idx): item})
+                )
+                await asyncio.sleep(0.01)
+            elapsed_ms = int((time.monotonic() - started_at) * 1000)
+            LoggingUtil.info(
+                "main",
+                f"⏱️ {label} write heavy field='{field_name}' mode=list-split items={len(value)} "
+                f"elapsed_ms={elapsed_ms} size={field_size}"
+            )
+            return
+
+        # dict top-level key 분할 저장
+        for key, item in value.items():
+            await asyncio.to_thread(
+                storage.update_data,
+                target_path,
+                storage.sanitize_data_for_storage({str(key): item})
+            )
+            await asyncio.sleep(0.01)
+        elapsed_ms = int((time.monotonic() - started_at) * 1000)
+        LoggingUtil.info(
+            "main",
+            f"⏱️ {label} write heavy field='{field_name}' mode=dict-split keys={len(value)} "
+            f"elapsed_ms={elapsed_ms} size={field_size}"
+        )
+
     if heavy_fields:
         light_output = {k: v for k, v in output.items() if k not in heavy_fields}
         heavy_output = {k: output[k] for k in heavy_fields}
@@ -102,13 +157,10 @@ async def _persist_output_with_completion(
             storage.sanitize_data_for_storage(light_output)
         )
 
-        if heavy_output:
+        if heavy_fields:
             await asyncio.sleep(heavy_write_delay)
-            await asyncio.to_thread(
-                storage.update_data,
-                output_path,
-                storage.sanitize_data_for_storage(heavy_output)
-            )
+            for field_name in heavy_fields:
+                await _write_heavy_field(field_name, output[field_name])
     else:
         await asyncio.to_thread(
             storage.set_data,
@@ -927,13 +979,29 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
 
         options_started_at = time.monotonic()
         await asyncio.sleep(0.03)
-        sanitized_options_output = storage.sanitize_data_for_storage(options_payload)
-        await asyncio.to_thread(
-            storage.update_data,
-            output_path,
-            sanitized_options_output
+        options = output.get('options', [])
+
+        # 대용량 options 단일 update_data 호출이 길게 블로킹되는 문제를 피하기 위해
+        # options/{index} 경로로 분할 저장한다.
+        per_option_elapsed = []
+        for idx, option in enumerate(options):
+            option_started_at = time.monotonic()
+            await asyncio.to_thread(
+                storage.set_data,
+                f"{output_path}/options/{idx}",
+                storage.sanitize_data_for_storage(option),
+            )
+            elapsed_ms = int((time.monotonic() - option_started_at) * 1000)
+            per_option_elapsed.append(elapsed_ms)
+            LoggingUtil.info("main", f"⏱️ AggregateDraft set_data(options/{idx}) elapsed_ms={elapsed_ms}")
+            # 저장 burst를 줄이기 위한 매우 짧은 간격
+            await asyncio.sleep(0.02)
+
+        LoggingUtil.info(
+            "main",
+            f"⏱️ AggregateDraft options write total_elapsed_ms={int((time.monotonic() - options_started_at) * 1000)}, "
+            f"per_option_ms={per_option_elapsed}"
         )
-        LoggingUtil.info("main", f"⏱️ AggregateDraft update_data(options) elapsed_ms={int((time.monotonic() - options_started_at) * 1000)}")
 
         # isCompleted는 마지막에 별도 저장하여 이벤트 순서 보장
         completed_started_at = time.monotonic()

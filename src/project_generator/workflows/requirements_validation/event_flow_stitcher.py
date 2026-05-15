@@ -7,18 +7,23 @@ EventFlowStitcher
 문제 배경:
 - RequirementsValidator 는 청크 단위로 호출됨. 각 청크 LLM 은 자기 청크 텍스트만 봄.
 - 청크 경계에서 잘린 시나리오는 LLM 이 "다음 이벤트가 뭔지 확신 못해서" nextEvents 를 빈 배열로 둠.
-- 청크 0 의 출력에 빈 nextEvents 가 깔리면, 청크 1+ 가 previousChunkSummary 로 그걸 보고 "이 프로젝트는 nextEvents 안 채우는 컨벤션" 으로 cascading 패턴 학습.
-- 결과: 누적 events 의 nextEvents 가 모두 비고, level 도 대부분 1 → 프론트 BPMN 시각화에서 모든 이벤트가 "Single Events" 탭으로 떨어져 흐름 없이 그려짐.
+- 청크 0 의 출력에 빈 nextEvents 가 깔리면, 청크 1+ 가 previousChunkSummary 로 그걸 보고 "이 프로젝트는
+  nextEvents 안 채우는 컨벤션" 으로 cascading 패턴 학습.
+- 결과: 누적 events 의 nextEvents 가 모두 비고, level 도 대부분 1 → 프론트 BPMN 시각화에서 모든 이벤트가
+  "Single Events" 탭으로 떨어져 흐름 없이 그려짐.
 
 해결:
-- 모든 청크 처리가 끝난 뒤 한 번 stitcher 호출.
-- 누적 events + actors + 원본 요구사항을 한 번에 LLM 에 주고 nextEvents/level 만 채우게 함.
+- 모든 청크 처리가 끝난 뒤 stitcher 호출. 누적 events 를 BATCH_SIZE 단위로 쪼개 LLM 콜을 여러 번 함.
+- 각 콜은 자기 배치 이벤트에만 nextEvents/level 을 채우되, **모든 이벤트 이름 목록을 namespace 로 제공**
+  하므로 cross-batch 참조도 가능.
+- 한 번에 100+ 이벤트를 던지면 LLM 이 작업 메모리/출력 토큰 한계로 보수적으로 빈 배열만 채워서
+  품질이 망가짐 (14/117 같은 사례). 배치 단위로 쪼개면 콜 당 작업량이 줄어 quality 가 회복됨.
+- 배치 간 병렬 처리 (ThreadPoolExecutor, P-GPT 게이트웨이 부하 고려해 BATCH_CONCURRENCY=3).
 - 이벤트 추가/삭제/이름 변경 금지 (시각 모델 일관성 보존).
 """
-from typing import Any, Dict, List
-from datetime import datetime
+from typing import Any, Dict, List, Set
+from concurrent.futures import ThreadPoolExecutor
 import json
-import re
 
 from project_generator.utils.logging_util import LoggingUtil
 from project_generator.utils.llm_factory import create_chat_llm
@@ -30,6 +35,15 @@ class EventFlowStitcher:
     # 매우 큰 요구사항 텍스트가 들어와도 프롬프트 토큰 폭주 방지.
     # 흐름 추론은 전체 텍스트 정독 없이도 이벤트 목록 + 설명으로 상당 부분 가능.
     MAX_REQUIREMENTS_CHARS = 60000
+
+    # 한 LLM 콜이 다룰 이벤트 수. 25 가 sweet spot:
+    # - 너무 작으면 (예: 10) 콜 수가 너무 많아 시간/비용 증가
+    # - 너무 크면 (예: 50+) LLM 이 보수적으로 빈 nextEvents 만 채움
+    BATCH_SIZE = 25
+
+    # 배치 병렬 처리 동시성. P-GPT 게이트웨이 부하 고려해 3 으로 시작.
+    # summarizer 와 동일 — 너무 키우면 429/연결거부, 너무 낮으면 직렬과 다를 게 없음.
+    BATCH_CONCURRENCY = 3
 
     def __init__(self):
         self.llm = create_chat_llm(
@@ -65,11 +79,50 @@ class EventFlowStitcher:
                 )
                 requirements_text = requirements_text[: self.MAX_REQUIREMENTS_CHARS] + "\n... [TRUNCATED]"
 
-            prompt = self._build_prompt(events, actors, requirements_text)
-            response = self.llm.invoke(prompt)
-            response_text = response.content if hasattr(response, "content") else str(response)
+            # 전체 이벤트 이름 namespace — 매 배치 콜에 같이 제공해서 cross-batch 참조 허용
+            all_event_brief = [
+                {
+                    "name": e.get("name"),
+                    "actor": e.get("actor"),
+                    "displayName": e.get("displayName")
+                }
+                for e in events
+                if e.get("name")
+            ]
+            valid_names: Set[str] = {e["name"] for e in all_event_brief}
 
-            stitched = self._parse_and_merge(response_text, events)
+            # 배치 분할
+            batches: List[List[Dict]] = [
+                events[i:i + self.BATCH_SIZE]
+                for i in range(0, len(events), self.BATCH_SIZE)
+            ]
+            LoggingUtil.info(
+                "EventFlowStitcher",
+                f"{len(events)} events → {len(batches)} batches of up to {self.BATCH_SIZE} (concurrency={self.BATCH_CONCURRENCY})"
+            )
+
+            # 배치별 LLM 콜 병렬 실행
+            stitch_index: Dict[str, Dict] = {}
+            with ThreadPoolExecutor(max_workers=self.BATCH_CONCURRENCY) as executor:
+                futures = [
+                    executor.submit(
+                        self._process_batch,
+                        batch, batch_idx, len(batches),
+                        all_event_brief, actors, requirements_text, valid_names
+                    )
+                    for batch_idx, batch in enumerate(batches)
+                ]
+                for fut in futures:
+                    try:
+                        partial = fut.result()
+                        # 후행 배치가 같은 이름을 또 채울 일은 없지만 안전상 update 로 머지
+                        stitch_index.update(partial)
+                    except Exception as e:
+                        LoggingUtil.error("EventFlowStitcher", f"Batch failed: {str(e)}")
+                        # 한 배치 실패해도 나머지 결과는 사용
+
+            # 머지: 원본 events 에 nextEvents/level 만 덮어쓰기
+            stitched = self._merge(events, stitch_index)
 
             LoggingUtil.info(
                 "EventFlowStitcher",
@@ -96,8 +149,46 @@ class EventFlowStitcher:
     def _count_with_next(events: List[Dict]) -> int:
         return sum(1 for e in events if e.get("nextEvents"))
 
-    def _build_prompt(self, events: List[Dict], actors: List[Dict], requirements_text: str) -> List[Dict]:
-        # 입력 이벤트 요약 (LLM 에 보낼 핵심 필드만)
+    def _process_batch(
+        self,
+        batch_events: List[Dict],
+        batch_idx: int,
+        total_batches: int,
+        all_event_brief: List[Dict],
+        actors: List[Dict],
+        requirements_text: str,
+        valid_names: Set[str],
+    ) -> Dict[str, Dict]:
+        """배치 하나 LLM 콜 → {name: {nextEvents, level}} 반환."""
+        try:
+            LoggingUtil.info(
+                "EventFlowStitcher",
+                f"Batch {batch_idx + 1}/{total_batches}: processing {len(batch_events)} events"
+            )
+
+            prompt = self._build_batch_prompt(batch_events, all_event_brief, actors, requirements_text)
+            response = self.llm.invoke(prompt)
+            response_text = response.content if hasattr(response, "content") else str(response)
+
+            partial = self._parse_batch_response(response_text, batch_events, valid_names)
+            filled = sum(1 for v in partial.values() if v.get("nextEvents"))
+            LoggingUtil.info(
+                "EventFlowStitcher",
+                f"Batch {batch_idx + 1}/{total_batches}: filled nextEvents for {filled}/{len(batch_events)}"
+            )
+            return partial
+        except Exception as e:
+            LoggingUtil.error("EventFlowStitcher", f"Batch {batch_idx + 1} error: {str(e)}")
+            return {}
+
+    def _build_batch_prompt(
+        self,
+        batch_events: List[Dict],
+        all_event_brief: List[Dict],
+        actors: List[Dict],
+        requirements_text: str,
+    ) -> List[Dict]:
+        # 이번 배치에서 LLM 이 채울 대상 (풀 디테일)
         events_for_llm = [
             {
                 "name": e.get("name"),
@@ -107,9 +198,12 @@ class EventFlowStitcher:
                 "currentLevel": e.get("level", 1),
                 "currentNextEvents": e.get("nextEvents", []) or []
             }
-            for e in events
+            for e in batch_events
             if e.get("name")
         ]
+
+        # nextEvents 의 valid target — 모든 이벤트 이름 + actor + displayName (cross-batch 참조 허용)
+        all_names_for_llm = all_event_brief
 
         actors_for_llm = [
             {
@@ -122,19 +216,18 @@ class EventFlowStitcher:
 
         system_prompt = """You are an Expert Business Analyst & Domain-Driven Design Specialist.
 
-You are given a list of business events that were extracted from a requirements document in chunks. Because each chunk was processed in isolation, the inter-event flow information (nextEvents) and the sequence levels were not populated reliably. Your job is to fix that.
+You are given a SUBSET of business events that were extracted from a large requirements document. The full event list (names only) is also provided as the valid namespace for the `nextEvents` field. Your job is to fill in the inter-event flow (nextEvents) and sequence (level) for the events in the SUBSET.
 
 **Your Task**
-For each event, populate:
-- `nextEvents`: array of event names that LOGICALLY follow this event in the business process.
+For each event in the SUBSET, populate:
+- `nextEvents`: array of event names that LOGICALLY follow this event in the business process. The target names MUST come from the FULL event name list (so cross-subset references are allowed and encouraged when the business flow demands it).
 - `level`: integer >= 1, indicating sequence priority in its containing process. Earlier events get lower level numbers; events at the same level are concurrent or independent.
 
 **Hard Rules**
-- You MUST NOT add new events.
-- You MUST NOT remove any events.
+- Output exactly one entry per SUBSET event (same names, same count).
+- You MUST NOT add events outside the subset to the output.
 - You MUST NOT change event names.
-- You MUST NOT modify any field other than `nextEvents` and `level`.
-- Every `nextEvents` entry MUST exactly match the `name` of one of the provided events.
+- Every `nextEvents` entry MUST exactly match a `name` from the FULL event name list (case- and spacing-sensitive).
 - An event may have zero or more nextEvents. Zero means it's a terminal/standalone event.
 
 **How to Infer Flow**
@@ -143,7 +236,8 @@ For each event, populate:
 3. Cross-actor handoffs (e.g., Customer places order → System validates → Warehouse ships) are common and SHOULD be captured as nextEvents.
 4. Branches: if an event leads to multiple possible next events (parallel or alternative), list all of them in nextEvents.
 5. Terminal events: events that complete a workflow (e.g., OrderDelivered, PaymentSettled) usually have empty nextEvents.
-6. Assign levels so that for each chain A -> B -> C, level(A) < level(B) < level(C). Concurrent events get the same level.
+6. **Default assumption**: most events ARE part of a chain. If you can find any plausible follow-up event in the full name list, include it. Only leave nextEvents empty when the event is clearly a workflow terminator.
+7. Assign levels so that for each chain A -> B -> C, level(A) < level(B) < level(C). Concurrent events get the same level.
 
 **Output Format (JSON only, no markdown, no extra text)**
 {
@@ -154,47 +248,60 @@ For each event, populate:
     ]
 }
 
-Return ALL input events in the output. Order does not matter, but every input event's name MUST appear in the output exactly once."""
+Return ALL events from the SUBSET (no more, no less). Order does not matter."""
 
-        user_prompt = f"""Input events ({len(events_for_llm)} total):
+        user_prompt = f"""**SUBSET to process** ({len(events_for_llm)} events — populate nextEvents + level for these):
 {json.dumps(events_for_llm, ensure_ascii=False, indent=2)}
 
-Input actors:
+**FULL event name list** ({len(all_names_for_llm)} events — these are the only valid nextEvents targets):
+{json.dumps(all_names_for_llm, ensure_ascii=False, indent=2)}
+
+**Actors**:
 {json.dumps(actors_for_llm, ensure_ascii=False, indent=2)}
 
-Original requirements (for full business context — may be truncated):
+**Original requirements** (may be truncated):
 {requirements_text or '(not provided)'}
 
-Now produce the JSON output with nextEvents and level populated for ALL events."""
+Now produce the JSON output. Remember: output entries ONLY for the SUBSET, but nextEvents may target ANY name from the FULL list."""
 
         return [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
 
-    def _parse_and_merge(self, response_text: str, original_events: List[Dict]) -> List[Dict]:
-        """LLM 응답을 파싱해서 원본 events 에 nextEvents/level 만 머지."""
+    def _parse_batch_response(
+        self,
+        response_text: str,
+        batch_events: List[Dict],
+        valid_names: Set[str],
+    ) -> Dict[str, Dict]:
+        """LLM 응답 → {name: {nextEvents, level}}. 배치에 속한 이벤트만 살림."""
         cleaned = self._extract_json(response_text)
         data = json.loads(cleaned)
         stitched = data.get("events", [])
 
-        # 인덱싱: 이벤트 이름 → 업데이트 정보
-        valid_names = {e.get("name") for e in original_events if e.get("name")}
-        stitch_index: Dict[str, Dict] = {}
+        batch_names = {e.get("name") for e in batch_events if e.get("name")}
+        result: Dict[str, Dict] = {}
         for item in stitched:
             name = item.get("name")
-            if not name:
+            if not name or name not in batch_names:
+                # 배치 외 이벤트가 출력에 끼어들면 무시
                 continue
-            # LLM 이 nextEvents 에 입력에 없는 이름을 적었으면 필터링 (할루시네이션 방지)
-            next_events = [n for n in (item.get("nextEvents") or []) if n in valid_names and n != name]
+            # nextEvents 가 입력에 없는 이름이면 필터링 (할루시네이션 차단)
+            next_events = [
+                n for n in (item.get("nextEvents") or [])
+                if n in valid_names and n != name
+            ]
             level = item.get("level")
             try:
                 level = int(level) if level is not None else None
             except (ValueError, TypeError):
                 level = None
-            stitch_index[name] = {"nextEvents": next_events, "level": level}
+            result[name] = {"nextEvents": next_events, "level": level}
+        return result
 
-        # 머지: 원본 이벤트 객체에 nextEvents/level 만 덮어쓰기. 다른 필드는 절대 안 건드림.
+    def _merge(self, original_events: List[Dict], stitch_index: Dict[str, Dict]) -> List[Dict]:
+        """원본 events 에 nextEvents/level 만 덮어쓰기. 다른 필드는 그대로 보존."""
         merged: List[Dict] = []
         for e in original_events:
             name = e.get("name")
@@ -208,7 +315,6 @@ Now produce the JSON output with nextEvents and level populated for ALL events."
                 # LLM 응답에 빠진 이벤트는 원본 그대로 유지
                 new_e["nextEvents"] = e.get("nextEvents", []) or []
             merged.append(new_e)
-
         return merged
 
     @staticmethod

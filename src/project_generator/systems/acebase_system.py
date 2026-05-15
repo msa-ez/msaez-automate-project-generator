@@ -15,9 +15,16 @@ from .storage_system import StorageSystem
 
 class AceBaseSystem(StorageSystem):
     """AceBase Storage 시스템 구현"""
-    
+
     _instance: Optional['AceBaseSystem'] = None
     _initialized: bool = False
+
+    # HTTP 요청 타임아웃.
+    # 30s 는 큰 set_data (예: aggregate draft 의 options 3개 전체 + logs) 가
+    # AceBase 가 바쁠 때 응답 받지 못하고 죽는 케이스가 잦음 → 60s 로 올려서 여유 확보.
+    REQUEST_TIMEOUT: int = 60
+    # 인증 요청은 짧게 — 토큰 만료 후 폭주 방지.
+    AUTH_TIMEOUT: int = 10
     
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -111,7 +118,7 @@ class AceBaseSystem(StorageSystem):
             response = None
             for body in body_variants:
                 try:
-                    response = self.session.post(auth_url, json=body, timeout=5)
+                    response = self.session.post(auth_url, json=body, timeout=self.AUTH_TIMEOUT)
                 except requests.exceptions.RequestException as e:
                     last_error = f"{auth_url} body={list(body.keys())} → {e}"
                     response = None
@@ -306,7 +313,7 @@ class AceBaseSystem(StorageSystem):
                 url,
                 json=payload,
                 headers=self._get_headers(),
-                timeout=30
+                timeout=self.REQUEST_TIMEOUT
             )
             response.raise_for_status()
             return True
@@ -339,7 +346,7 @@ class AceBaseSystem(StorageSystem):
                 url,
                 json=payload,
                 headers=self._get_headers(),
-                timeout=30
+                timeout=self.REQUEST_TIMEOUT
             )
             response.raise_for_status()
             return True
@@ -430,7 +437,7 @@ class AceBaseSystem(StorageSystem):
                 response = self.session.get(
                     url,
                     headers=self._get_headers(),
-                    timeout=30
+                    timeout=self.REQUEST_TIMEOUT
                 )
                 # 404는 데이터가 없는 것으로 처리 (에러가 아님)
                 if response.status_code == 404:
@@ -466,7 +473,7 @@ class AceBaseSystem(StorageSystem):
                 response = self.session.get(
                     url,
                     headers=self._get_headers(),
-                    timeout=30
+                    timeout=self.REQUEST_TIMEOUT
                 )
                 # 404는 데이터가 없는 것으로 처리 (에러가 아님)
                 if response.status_code == 404:
@@ -539,7 +546,7 @@ class AceBaseSystem(StorageSystem):
                     url,
                     json=payload,
                     headers=self._get_headers(),
-                    timeout=30
+                    timeout=self.REQUEST_TIMEOUT
                 )
                 # 404는 이미 삭제되었거나 존재하지 않는 것으로 처리 (에러가 아님)
                 if response.status_code == 404:

@@ -1004,10 +1004,11 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
         }
         options_payload = {'options': output.get('options', [])}
 
+        options_size_bytes = _estimate_json_size_bytes(options_payload)
         LoggingUtil.info(
             "main",
             f"📦 AggregateDraft payload size (bytes): light={_estimate_json_size_bytes(light_output)}, "
-            f"options={_estimate_json_size_bytes(options_payload)}"
+            f"options={options_size_bytes}"
         )
 
         write_started_at = time.monotonic()
@@ -1063,6 +1064,11 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
 
         # 기존 프론트는 outputs/options를 기대하므로 점진 배포 기간에는 호환 저장 유지
         if Config.aggregate_draft_write_legacy_options():
+            LoggingUtil.warning(
+                "main",
+                f"AggregateDraft legacy options write is enabled (job={job_id}, options_bytes={options_size_bytes}). "
+                "This path can re-introduce ping timeouts on large payloads."
+            )
             legacy_started_at = time.monotonic()
             per_option_elapsed = []
             for idx, option in enumerate(options):

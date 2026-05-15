@@ -95,9 +95,9 @@ class Config:
     def aggregate_draft_write_legacy_options() -> bool:
         """
         Aggregate Draft 결과 저장 시 기존 프론트 호환을 위해 outputs/options를 함께 저장할지 여부.
-        성능 최적화(chunks) 적용 중 점진 배포를 위해 기본값은 true.
+        legacy options 경로는 대용량 단건 write를 유발하므로 기본값은 false.
         """
-        return os.getenv('AGGR_DRAFT_WRITE_LEGACY_OPTIONS', 'true').lower() == 'true'
+        return os.getenv('AGGR_DRAFT_WRITE_LEGACY_OPTIONS', 'false').lower() == 'true'
 
     @staticmethod
     def get_log_level() -> str:

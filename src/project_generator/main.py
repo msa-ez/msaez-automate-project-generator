@@ -89,7 +89,8 @@ async def _persist_output_with_completion(
     async def _write_heavy_field(field_name: str, value):
         """heavy field 저장: 크기/타입 기반으로 자동 분할."""
         field_size = _estimate_json_size_bytes(value)
-        split_threshold_bytes = 20_000
+        # requirements_mapper 같은 중간 크기 payload도 단건 write를 피하도록 임계값을 낮춘다.
+        split_threshold_bytes = 2_000
 
         # 작거나 단순한 값은 루트 경로 부분 업데이트
         if field_size < split_threshold_bytes or not isinstance(value, (list, dict)):

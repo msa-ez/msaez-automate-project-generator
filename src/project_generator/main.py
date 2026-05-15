@@ -5,6 +5,7 @@ import json
 import math
 import copy
 import os
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
@@ -57,6 +58,70 @@ def _compute_intermediate_lengths(final_length: int, steps: int = 3) -> List[int
 
     intermediate = sorted(lengths)
     return intermediate
+
+
+def _estimate_json_size_bytes(data) -> int:
+    """로그/튜닝 목적의 대략적인 JSON payload 크기 추정."""
+    try:
+        return len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+    except Exception:
+        return 0
+
+
+async def _persist_output_with_completion(
+    output_path: str,
+    output: dict,
+    is_completed=True,
+    *,
+    heavy_fields: list[str] | None = None,
+    label: str = "JobOutput",
+    heavy_write_delay: float = 0.03,
+    completion_delay: float = 0.1,
+):
+    """
+    outputs 저장 공통 헬퍼.
+    - heavy_fields가 있으면 경량/중량 필드를 분리 저장해 대용량 단일 write를 피한다.
+    - isCompleted는 항상 마지막에 저장해 이벤트 순서를 유지한다.
+    """
+    storage = StorageSystemFactory.instance()
+    heavy_fields = [field for field in (heavy_fields or []) if field in output]
+
+    if heavy_fields:
+        light_output = {k: v for k, v in output.items() if k not in heavy_fields}
+        heavy_output = {k: output[k] for k in heavy_fields}
+        LoggingUtil.info(
+            "main",
+            f"📦 {label} payload size (bytes): "
+            f"light={_estimate_json_size_bytes(light_output)}, "
+            f"heavy={_estimate_json_size_bytes(heavy_output)}"
+        )
+
+        await asyncio.to_thread(
+            storage.set_data,
+            output_path,
+            storage.sanitize_data_for_storage(light_output)
+        )
+
+        if heavy_output:
+            await asyncio.sleep(heavy_write_delay)
+            await asyncio.to_thread(
+                storage.update_data,
+                output_path,
+                storage.sanitize_data_for_storage(heavy_output)
+            )
+    else:
+        await asyncio.to_thread(
+            storage.set_data,
+            output_path,
+            storage.sanitize_data_for_storage(output)
+        )
+
+    await asyncio.sleep(completion_delay)
+    await asyncio.to_thread(
+        storage.update_data,
+        output_path,
+        {'isCompleted': is_completed}
+    )
 
 
 async def main():
@@ -180,23 +245,14 @@ async def process_summarizer_job(job_id: str, complete_job_func: callable):
         summaries = result.get('summarizedRequirements', [])
         LoggingUtil.info("main", f"✅ 요약 완료: {len(summaries)}개")
         
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'jobs/summarizer/{job_id}/state/outputs'
-        
-        # 1) isCompleted 제외한 데이터 먼저 저장
         result_without_completed = {k: v for k, v in result.items() if k != 'isCompleted'}
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            result_without_completed
-        )
-        
-        # 2) 짧은 대기 후 isCompleted 저장
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
+            result_without_completed,
+            True,
+            heavy_fields=['summarizedRequirements'],
+            label='Summarizer',
         )
         
         # requestedJob 삭제
@@ -295,20 +351,13 @@ async def process_user_story_job(job_id: str, complete_job_func: callable):
                 error_payload
             )
         else:
-            # 1) isCompleted 제외한 데이터 먼저 저장
             result_without_completed = {k: v for k, v in result.items() if k != 'isCompleted'}
-            await asyncio.to_thread(
-                StorageSystemFactory.instance().set_data,
+            await _persist_output_with_completion(
                 output_path,
-                result_without_completed
-            )
-
-            # 2) 짧은 대기 후 isCompleted 저장 (이벤트 순서 보장)
-            await asyncio.sleep(0.1)
-            await asyncio.to_thread(
-                StorageSystemFactory.instance().update_data,
-                output_path,
-                {'isCompleted': True}
+                result_without_completed,
+                True,
+                heavy_fields=['userStories', 'actors', 'businessRules'],
+                label='UserStory',
             )
         
         # requestedJob 삭제
@@ -399,21 +448,13 @@ async def process_bounded_context_job(job_id: str, complete_job_func: callable):
         result_with_length = copy.deepcopy(result)
         result_with_length['currentGeneratedLength'] = final_length
 
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
-        # 1) isCompleted 제외한 데이터 먼저 저장
         result_without_completed = {k: v for k, v in result_with_length.items() if k != 'isCompleted'}
-        await asyncio.to_thread(
-            storage.set_data,
+        await _persist_output_with_completion(
             output_path,
-            storage.sanitize_data_for_storage(result_without_completed)
-        )
-        
-        # 2) 짧은 대기 후 isCompleted 저장
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            storage.update_data,
-            output_path,
-            {'isCompleted': True}
+            result_without_completed,
+            True,
+            heavy_fields=['boundedContexts', 'relations', 'explanations'],
+            label='BoundedContext',
         )
         
         # requestedJob 삭제
@@ -492,28 +533,20 @@ async def process_command_readmodel_job(job_id: str, complete_job_func: callable
             {"recursion_limit": 50}
         )
         
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'jobs/command_readmodel_extractor/{job_id}/state/outputs'
-        
-        # 1) isCompleted 제외한 데이터 먼저 저장
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        output = {
+            'extractedData': result.get('extracted_data', {}),
+            'logs': result.get('logs', []),
+            'progress': result.get('progress', 0),
+            'isFailed': result.get('is_failed', False),
+            'error': result.get('error', '')
+        }
+        await _persist_output_with_completion(
             output_path,
-            {
-                'extractedData': result.get('extracted_data', {}),
-                'logs': result.get('logs', []),
-                'progress': result.get('progress', 0),
-                'isFailed': result.get('is_failed', False),
-                'error': result.get('error', '')
-            }
-        )
-        
-        # 2) 짧은 대기 후 isCompleted 저장
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': result.get('is_completed', False)}
+            output,
+            result.get('is_completed', False),
+            heavy_fields=['extractedData'],
+            label='CommandReadModel',
         )
         
         # requestedJob 삭제
@@ -622,19 +655,12 @@ async def process_sitemap_job(job_id: str, complete_job_func: callable):
             'currentGeneratedLength': final_length
         }
 
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
-        await asyncio.to_thread(
-            storage.set_data,
+        await _persist_output_with_completion(
             output_path,
-            storage.sanitize_data_for_storage(final_output)
-        )
-        
-        # 짧은 대기 후 isCompleted 저장
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            storage.update_data,
-            output_path,
-            {'isCompleted': result.get('is_completed', False)}
+            final_output,
+            result.get('is_completed', False),
+            heavy_fields=['siteMap'],
+            label='SiteMap',
         )
         
         # requestedJob 삭제
@@ -714,20 +740,13 @@ async def process_requirements_mapping_job(job_id: str, complete_job_func: calla
             'logs': result.get('logs', [])
         }
         
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': result.get('is_completed', True)}
+            output,
+            result.get('is_completed', True),
+            heavy_fields=['requirements'],
+            label='RequirementsMapping',
         )
         
         # 요청 Job 제거
@@ -878,18 +897,44 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
             'logs': result.get('logs', [])
         }
         
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
-            output_path,
-            sanitized_output
+        storage = StorageSystemFactory.instance()
+
+        # options가 큰 경우 단일 대용량 write 대신 분할 저장해 event-loop 점유를 줄인다.
+        light_output = {
+            'inference': output.get('inference', ''),
+            'defaultOptionIndex': output.get('defaultOptionIndex', 0),
+            'conclusions': output.get('conclusions', ''),
+            'progress': output.get('progress', 100),
+            'logs': output.get('logs', [])
+        }
+        options_payload = {'options': output.get('options', [])}
+
+        LoggingUtil.info(
+            "main",
+            f"📦 AggregateDraft payload size (bytes): light={_estimate_json_size_bytes(light_output)}, "
+            f"options={_estimate_json_size_bytes(options_payload)}"
         )
-        
+
+        sanitized_light_output = storage.sanitize_data_for_storage(light_output)
+        await asyncio.to_thread(
+            storage.set_data,
+            output_path,
+            sanitized_light_output
+        )
+
+        await asyncio.sleep(0.03)
+        sanitized_options_output = storage.sanitize_data_for_storage(options_payload)
+        await asyncio.to_thread(
+            storage.update_data,
+            output_path,
+            sanitized_options_output
+        )
+
+        # isCompleted는 마지막에 별도 저장하여 이벤트 순서 보장
         await asyncio.sleep(0.1)
         await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
+            storage.update_data,
             output_path,
             {'isCompleted': result.get('is_completed', True)}
         )
@@ -969,7 +1014,6 @@ async def process_preview_fields_job(job_id: str, complete_job_func: callable):
         generator = PreviewFieldsGenerator()
         result = generator.run(inputs)
         
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output = {
             'inference': result.get('inference', ''),
             'aggregateFieldAssignments': result.get('aggregateFieldAssignments', []),
@@ -978,18 +1022,12 @@ async def process_preview_fields_job(job_id: str, complete_job_func: callable):
         }
         
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': result.get('isCompleted', True)}
+            output,
+            result.get('isCompleted', True),
+            heavy_fields=['aggregateFieldAssignments'],
+            label='PreviewFields',
         )
         
         # 요청 Job 제거
@@ -1061,20 +1099,13 @@ async def process_ddl_fields_job(job_id: str, complete_job_func: callable):
             'logs': [{'timestamp': result.get('timestamp', ''), 'level': 'info', 'message': 'DDL fields assigned successfully'}]
         }
         
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
+            output,
+            True,
+            heavy_fields=['aggregateFieldAssignments'],
+            label='DDLFields',
         )
         
         # 요청 Job 제거
@@ -1148,9 +1179,19 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
                 LoggingUtil.warning("main", f"Storage 업데이트 실패: {e}")
         
         # 동기 함수로 Storage 업데이트 (transform 내부에서 호출)
+        last_sync_storage_update_ts = 0.0
         def sync_storage_update(update_data: dict):
             """동기 함수로 Storage 업데이트 (transform 내부에서 호출)"""
+            nonlocal last_sync_storage_update_ts
             try:
+                # 과도한 빈도 업데이트를 완화 (완료/오류 상태는 즉시 반영)
+                status = update_data.get('status')
+                is_terminal = update_data.get('isCompleted') or status in ('completed', 'error')
+                now = time.monotonic()
+                if not is_terminal and (now - last_sync_storage_update_ts) < 0.08:
+                    return
+                last_sync_storage_update_ts = now
+
                 sanitized_data = storage.sanitize_data_for_storage(update_data)
                 storage.update_data(output_path, sanitized_data)
             except Exception as e:
@@ -1181,20 +1222,14 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
         if error:
             output['error'] = error
 
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': is_completed}
+            output,
+            is_completed,
+            heavy_fields=['transformedOptions', 'transformationLog'],
+            label='StandardTransformer',
+            heavy_write_delay=0.05,
         )
 
         req_path = f'requestedJobs/standard_transformer/{job_id}'
@@ -1393,20 +1428,14 @@ async def process_traceability_job(job_id: str, complete_job_func: callable):
             'logs': [{'timestamp': datetime.now().isoformat(), 'level': 'info', 'message': 'Traceability mapping completed'}]
         }
 
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
+            output,
+            True,
+            heavy_fields=['draftTraceMap'],
+            label='Traceability',
+            heavy_write_delay=0.05,
         )
 
         req_path = f'requestedJobs/traceability_generator/{job_id}'
@@ -1468,20 +1497,13 @@ async def process_ddl_extractor_job(job_id: str, complete_job_func: callable):
             'logs': [{'timestamp': datetime.now().isoformat(), 'level': 'info', 'message': 'DDL extraction completed'}]
         }
 
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
         output_path = f'{job_path}/state/outputs'
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
+            output,
+            True,
+            heavy_fields=['ddlFieldRefs'],
+            label='DDLExtractor',
         )
 
         req_path = f'requestedJobs/ddl_extractor/{job_id}'
@@ -1570,21 +1592,12 @@ async def process_requirements_validator_job(job_id: str, complete_job_func: cal
             'logs': [{'timestamp': datetime.now().isoformat(), 'level': 'info', 'message': 'Requirements validation completed'}]
         }
 
-        # ★ isCompleted를 마지막에 별도로 저장하여 이벤트 순서 보장
-        # 1) isCompleted 제외한 데이터 먼저 저장
-        sanitized_output = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized_output
-        )
-        
-        # 2) 짧은 대기 후 isCompleted 저장 (이벤트 순서 보장)
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
+            output,
+            True,
+            heavy_fields=['content'],
+            label='RequirementsValidator',
         )
 
         req_path = f'requestedJobs/requirements_validator/{job_id}'
@@ -1657,19 +1670,12 @@ async def process_requirements_flow_stitcher_job(job_id: str, complete_job_func:
         if result.get('error'):
             output['error'] = result['error']
 
-        sanitized = StorageSystemFactory.instance().sanitize_data_for_storage(output)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().set_data,
+        await _persist_output_with_completion(
             output_path,
-            sanitized
-        )
-
-        # isCompleted 별도 저장 (이벤트 순서 보장)
-        await asyncio.sleep(0.1)
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().update_data,
-            output_path,
-            {'isCompleted': True}
+            output,
+            True,
+            heavy_fields=['content'],
+            label='RequirementsFlowStitcher',
         )
 
         req_path = f'requestedJobs/requirements_flow_stitcher/{job_id}'

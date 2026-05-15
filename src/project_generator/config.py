@@ -77,6 +77,21 @@ class Config:
         return float(os.getenv('JOB_POLLING_INTERVAL', '2.0'))
 
     @staticmethod
+    def job_heartbeat_interval() -> float:
+        """활성 작업 heartbeat 전송 간격 (초)"""
+        return float(os.getenv('JOB_HEARTBEAT_INTERVAL', '4.0'))
+
+    @staticmethod
+    def job_waiting_count_update_interval() -> float:
+        """대기열 waitingJobCount 갱신 간격 (초)"""
+        return float(os.getenv('JOB_WAITING_COUNT_UPDATE_INTERVAL', '6.0'))
+
+    @staticmethod
+    def job_recovery_check_interval() -> float:
+        """실패 작업 복구 점검 간격 (초)"""
+        return float(os.getenv('JOB_RECOVERY_CHECK_INTERVAL', '10.0'))
+
+    @staticmethod
     def get_log_level() -> str:
         """환경별 로그 레벨 반환 (DEBUG, INFO, WARNING, ERROR)"""
         if Config.is_local_run():

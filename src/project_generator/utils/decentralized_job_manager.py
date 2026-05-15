@@ -103,23 +103,25 @@ class DecentralizedJobManager:
         
         max_concurrent = Config.max_concurrent_jobs()
         polling_interval = Config.job_polling_interval()
+        heartbeat_interval = Config.job_heartbeat_interval()
+        waiting_update_interval = Config.job_waiting_count_update_interval()
+        recovery_check_interval = Config.job_recovery_check_interval()
+        last_heartbeat_at = 0.0
+        last_waiting_update_at = 0.0
+        last_recovery_check_at = 0.0
         
         LoggingUtil.info("decentralized_job_manager", f"Job 모니터링 시작 (병렬 처리 모드, 최대 {max_concurrent}개 동시 처리, 폴링 간격: {polling_interval}초)")
         LoggingUtil.info("decentralized_job_manager", f"감시 중인 namespaces: {namespaces}")
+        LoggingUtil.info(
+            "decentralized_job_manager",
+            f"메타 업데이트 간격: heartbeat={heartbeat_interval}s, waiting={waiting_update_interval}s, recovery={recovery_check_interval}s"
+        )
         
         while not self.shutdown_requested:
             try:
                 LoggingUtil.debug("decentralized_job_manager", f"Job 모니터링 중... (현재 처리 중인 작업: {len(self.active_jobs)}/{max_concurrent})")
 
-                # 여러 namespace의 Job을 모두 수집
-                all_requested_jobs = {}
-                for namespace in namespaces:
-                    namespace_path = f"requestedJobs/{namespace}"
-                    jobs = await StorageSystemFactory.instance().get_children_data_async(namespace_path)
-                    if jobs:
-                        all_requested_jobs.update(jobs)
-                
-                requested_jobs = all_requested_jobs
+                requested_jobs = await self._collect_requested_jobs(namespaces)
                 
                 # 작업 삭제 요청 확인 및 처리
                 await self.check_and_handle_removal_requests(requested_jobs)
@@ -141,14 +143,22 @@ class DecentralizedJobManager:
                             # 더 이상 처리할 작업이 없음
                             break
                 
-                # 모든 처리 중인 Job의 heartbeat 전송
-                await self.send_heartbeats()
+                now = time.time()
+
+                # 모든 처리 중인 Job의 heartbeat 전송 (주기 제한)
+                if now - last_heartbeat_at >= heartbeat_interval:
+                    await self.send_heartbeats()
+                    last_heartbeat_at = now
                 
-                # 대기 중인 작업들의 waitingJobCount 업데이트
-                await self.update_waiting_job_counts(requested_jobs)
+                # 대기 중인 작업들의 waitingJobCount 업데이트 (주기 제한)
+                if now - last_waiting_update_at >= waiting_update_interval:
+                    await self.update_waiting_job_counts(requested_jobs)
+                    last_waiting_update_at = now
                 
-                # 실패한 작업 복구 (다른 Pod의 실패 작업)
-                await self.recover_failed_jobs(requested_jobs)
+                # 실패한 작업 복구 (주기 제한)
+                if now - last_recovery_check_at >= recovery_check_interval:
+                    await self.recover_failed_jobs(requested_jobs)
+                    last_recovery_check_at = now
                 
                 # 이벤트 루프 양보 - 다른 태스크들이 실행될 수 있도록 함
                 await asyncio.sleep(0.1)
@@ -161,6 +171,29 @@ class DecentralizedJobManager:
         
         # Graceful shutdown 처리
         await self._handle_graceful_shutdown()
+
+    async def _collect_requested_jobs(self, namespaces: List[str]) -> dict:
+        """감시 namespace의 requested jobs를 수집 (루트 1회 조회 우선)"""
+        try:
+            root_requested = await StorageSystemFactory.instance().get_children_data_async("requestedJobs")
+            if isinstance(root_requested, dict):
+                collected = {}
+                for namespace in namespaces:
+                    jobs = root_requested.get(namespace)
+                    if isinstance(jobs, dict):
+                        collected.update(jobs)
+                return collected
+        except Exception as e:
+            LoggingUtil.warning("decentralized_job_manager", f"requestedJobs 루트 조회 실패, namespace별 조회로 fallback: {e}")
+
+        # fallback: 기존 namespace별 개별 조회
+        collected = {}
+        for namespace in namespaces:
+            namespace_path = f"requestedJobs/{namespace}"
+            jobs = await StorageSystemFactory.instance().get_children_data_async(namespace_path)
+            if jobs:
+                collected.update(jobs)
+        return collected
 
     async def _handle_graceful_shutdown(self):
         """Graceful shutdown 처리 - 모든 작업 완료를 기다림"""

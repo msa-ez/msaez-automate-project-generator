@@ -916,13 +916,16 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
             f"options={_estimate_json_size_bytes(options_payload)}"
         )
 
+        write_started_at = time.monotonic()
         sanitized_light_output = storage.sanitize_data_for_storage(light_output)
         await asyncio.to_thread(
             storage.set_data,
             output_path,
             sanitized_light_output
         )
+        LoggingUtil.info("main", f"⏱️ AggregateDraft set_data(light) elapsed_ms={int((time.monotonic() - write_started_at) * 1000)}")
 
+        options_started_at = time.monotonic()
         await asyncio.sleep(0.03)
         sanitized_options_output = storage.sanitize_data_for_storage(options_payload)
         await asyncio.to_thread(
@@ -930,21 +933,22 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
             output_path,
             sanitized_options_output
         )
+        LoggingUtil.info("main", f"⏱️ AggregateDraft update_data(options) elapsed_ms={int((time.monotonic() - options_started_at) * 1000)}")
 
         # isCompleted는 마지막에 별도 저장하여 이벤트 순서 보장
+        completed_started_at = time.monotonic()
         await asyncio.sleep(0.1)
         await asyncio.to_thread(
             storage.update_data,
             output_path,
             {'isCompleted': result.get('is_completed', True)}
         )
+        LoggingUtil.info("main", f"⏱️ AggregateDraft update_data(isCompleted) elapsed_ms={int((time.monotonic() - completed_started_at) * 1000)}")
         
         # 요청 Job 제거
         req_path = f'requestedJobs/aggregate_draft_generator/{job_id}'
-        await asyncio.to_thread(
-            StorageSystemFactory.instance().delete_data,
-            req_path
-        )
+        # 삭제는 사용자 체감 완료 경로와 분리 (삭제 지연이 본 처리 완료를 막지 않도록)
+        asyncio.create_task(asyncio.to_thread(StorageSystemFactory.instance().delete_data, req_path))
         
         LoggingUtil.info("main", f"🎉 Aggregate Draft 생성 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")

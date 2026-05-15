@@ -65,9 +65,17 @@ class AceBaseSystem(StorageSystem):
         self.session.mount("https://", adapter)
         
         self.access_token: Optional[str] = None
+        # 자격증명을 인스턴스에 보관 — 토큰 만료/서버 재시작으로 401·403 받았을 때 재인증할 수 있도록.
+        # 기존엔 __init__ 에서만 쓰고 버려서 한 번 토큰이 죽으면 영원히 403 루프 도는 상태였음.
+        self.username: Optional[str] = username
+        self.password: Optional[str] = password
+        # 재인증 최소 인터벌 — 401/403 폭주 시 매 요청마다 재인증 시도하면 서버에 부담.
+        # 5초 이내엔 한 번만 시도, 그 다음 호출은 그냥 실패 처리.
+        self._last_reauth_at: float = 0.0
+        self._reauth_min_interval: float = 5.0
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
         self._listeners: Dict[str, Any] = {}  # watch 기능을 위한 리스너 관리
-        
+
         # 인증 처리 (선택적 - AceBase는 인증 없이도 작동할 수 있음)
         if username and password:
             try:
@@ -80,7 +88,7 @@ class AceBaseSystem(StorageSystem):
             # 인증 정보가 제공되지 않은 경우 (정상 동작)
             LoggingUtil.info("acebase_system", "AceBase 인증 정보 없음: 인증 없이 진행")
             self.access_token = None
-        
+
         self._initialized = True
     
     def _authenticate(self, username: str, password: str):
@@ -179,24 +187,61 @@ class AceBaseSystem(StorageSystem):
             headers["Authorization"] = f"Bearer {self.access_token}"
         return headers
     
+    def _try_reauthenticate(self) -> bool:
+        """
+        토큰 만료/서버 재시작/기동 순서 문제 등으로 401·403 받았을 때 호출.
+        자격증명이 저장돼 있고 마지막 재인증으로부터 _reauth_min_interval 초가 지났으면 1회 시도.
+        성공하면 True, 실패하거나 시도조차 안 하면 False.
+        """
+        if not (self.username and self.password):
+            return False
+        now = time.time()
+        if now - self._last_reauth_at < self._reauth_min_interval:
+            # 최근에 이미 시도했음 — 폭주 방지로 스킵
+            return False
+        self._last_reauth_at = now
+        try:
+            LoggingUtil.warning("acebase_system", "401/403 감지 — 재인증 시도")
+            self._authenticate(self.username, self.password)
+            return self.access_token is not None
+        except Exception as reauth_err:
+            LoggingUtil.warning("acebase_system", f"재인증 실패: {reauth_err}")
+            return False
+
     def _execute_with_error_handling(self, operation_name: str, operation_func: Callable, *args, **kwargs) -> Any:
         """
         에러 처리가 포함된 공통 실행 래퍼
-        
+
         Args:
             operation_name (str): 작업 이름 (에러 메시지용)
             operation_func (Callable): 실행할 함수
             *args, **kwargs: 함수에 전달할 인수들
-            
+
         Returns:
             Any: 실행 결과 또는 실패 시 기본값
         """
         try:
             return operation_func(*args, **kwargs)
         except requests.exceptions.HTTPError as e:
-            if e.response and e.response.status_code == 404:
+            status_code = e.response.status_code if e.response is not None else None
+            if status_code == 404:
                 # 404는 정상 케이스 (경로가 아직 없음) - 에러 로그 없이 None 반환
                 return None
+            if status_code in (401, 403):
+                # 토큰 만료/서버 재시작/기동 순서 문제로 인증이 무효화된 케이스.
+                # 재인증 성공 시 한 번만 retry.
+                if self._try_reauthenticate():
+                    try:
+                        return operation_func(*args, **kwargs)
+                    except requests.exceptions.HTTPError as retry_err:
+                        retry_code = retry_err.response.status_code if retry_err.response is not None else None
+                        if retry_code == 404:
+                            return None
+                        LoggingUtil.exception("acebase_system", f"{operation_name} 재인증 후 retry 도 실패", retry_err)
+                        return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
+                    except Exception as retry_err:
+                        LoggingUtil.exception("acebase_system", f"{operation_name} 재인증 후 retry 도 실패", retry_err)
+                        return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
             LoggingUtil.exception("acebase_system", f"{operation_name} 실패", e)
             return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
         except Exception as e:

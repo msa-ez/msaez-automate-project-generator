@@ -121,28 +121,30 @@ class AggregateDraftGenerator:
                                     },
                                     "pros": {
                                         "type": "object",
+                                        "description": "Pros for each quality attribute, written in Korean (한글)",
                                         "properties": {
-                                            "cohesion": {"type": "string"},
-                                            "coupling": {"type": "string"},
-                                            "consistency": {"type": "string"},
-                                            "encapsulation": {"type": "string"},
-                                            "complexity": {"type": "string"},
-                                            "independence": {"type": "string"},
-                                            "performance": {"type": "string"}
+                                            "cohesion": {"type": "string", "description": "Korean (한글)"},
+                                            "coupling": {"type": "string", "description": "Korean (한글)"},
+                                            "consistency": {"type": "string", "description": "Korean (한글)"},
+                                            "encapsulation": {"type": "string", "description": "Korean (한글)"},
+                                            "complexity": {"type": "string", "description": "Korean (한글)"},
+                                            "independence": {"type": "string", "description": "Korean (한글)"},
+                                            "performance": {"type": "string", "description": "Korean (한글)"}
                                         },
                                         "required": ["cohesion", "coupling", "consistency", "encapsulation", "complexity", "independence", "performance"],
                                         "additionalProperties": False
                                     },
                                     "cons": {
                                         "type": "object",
+                                        "description": "Cons for each quality attribute, written in Korean (한글)",
                                         "properties": {
-                                            "cohesion": {"type": "string"},
-                                            "coupling": {"type": "string"},
-                                            "consistency": {"type": "string"},
-                                            "encapsulation": {"type": "string"},
-                                            "complexity": {"type": "string"},
-                                            "independence": {"type": "string"},
-                                            "performance": {"type": "string"}
+                                            "cohesion": {"type": "string", "description": "Korean (한글)"},
+                                            "coupling": {"type": "string", "description": "Korean (한글)"},
+                                            "consistency": {"type": "string", "description": "Korean (한글)"},
+                                            "encapsulation": {"type": "string", "description": "Korean (한글)"},
+                                            "complexity": {"type": "string", "description": "Korean (한글)"},
+                                            "independence": {"type": "string", "description": "Korean (한글)"},
+                                            "performance": {"type": "string", "description": "Korean (한글)"}
                                         },
                                         "required": ["cohesion", "coupling", "consistency", "encapsulation", "complexity", "independence", "performance"],
                                         "additionalProperties": False
@@ -158,7 +160,7 @@ class AggregateDraftGenerator:
                         },
                         "conclusions": {
                             "type": "string",
-                            "description": "Conclusion explaining when each option would be best to choose"
+                            "description": "Conclusion explaining when each option would be best to choose AND why the recommended option (defaultOptionIndex) was selected. Written in Korean (한글)."
                         }
                     },
                     "required": ["options", "defaultOptionIndex", "conclusions"],
@@ -445,6 +447,12 @@ class AggregateDraftGenerator:
       * Independence: How autonomously each aggregate can evolve
       * Performance: Query efficiency, memory usage, and operational characteristics
     - Ensure pros and cons are meaningfully different between options
+
+11. **Language for Evaluation Output (한글)**
+    - All `pros` and `cons` field values (cohesion, coupling, consistency, encapsulation, complexity, independence, performance) MUST be written in Korean.
+    - The `conclusions` field MUST be written in Korean.
+    - English technical terms (Aggregate, ValueObject, Enumeration, BoundedContext 등 도메인 용어) may remain as-is when referenced inline; full sentences and descriptions are Korean.
+    - All other structural fields — `inference`, aggregate/enumeration/valueObject `name`/`alias`, `boundedContext.name`/`alias` — follow existing rules and remain unchanged.
 
 ## Input
 

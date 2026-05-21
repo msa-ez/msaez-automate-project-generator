@@ -4,6 +4,7 @@ from typing import Optional
 from .storage_system import StorageSystem
 from .firebase_system import FirebaseSystem
 from .acebase_system import AceBaseSystem
+from .postgres_storage_system import PostgresStorageSystem
 from ..utils.logging_util import LoggingUtil
 
 
@@ -21,7 +22,7 @@ class StorageSystemFactory:
             str: 'firebase' 또는 'acebase'
         """
         storage_type = os.getenv('STORAGE_TYPE', 'firebase').lower()
-        if storage_type not in ['firebase', 'acebase']:
+        if storage_type not in ['firebase', 'acebase', 'postgres']:
             LoggingUtil.warning("storage_system_factory", f"알 수 없는 STORAGE_TYPE: {storage_type}, 기본값 'firebase' 사용")
             return 'firebase'
         return storage_type
@@ -58,6 +59,22 @@ class StorageSystemFactory:
                 dbname=dbname,
                 https=https,
                 username=username,
+                password=password
+            )
+        elif storage_type == 'postgres':
+            # PostgreSQL 초기화 (v1.0.30 — DB-migration-plan.md §5)
+            host = os.getenv('POSTGRES_HOST', '127.0.0.1')
+            port = int(os.getenv('POSTGRES_PORT', '5432'))
+            dbname = os.getenv('POSTGRES_DB', 'msaez')
+            user = os.getenv('POSTGRES_USER', 'msaez')
+            password = os.getenv('POSTGRES_PASSWORD', '')
+
+            LoggingUtil.info("storage_system_factory", f"PostgreSQL 시스템 초기화: {host}:{port}/{dbname}")
+            StorageSystemFactory._storage_system = PostgresStorageSystem.initialize(
+                host=host,
+                port=port,
+                dbname=dbname,
+                user=user,
                 password=password
             )
         else:

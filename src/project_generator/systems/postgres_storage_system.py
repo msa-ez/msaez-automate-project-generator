@@ -599,7 +599,10 @@ class PostgresStorageSystem(StorageSystem):
         return data
 
     def restore_data_from_storage(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        return data
+        # job manager(atomic_claim_job 등)가 복원본을 변형한 뒤 원본과 diff 하므로,
+        # passthrough 가 아니라 원본과 독립된 깊은 복사본을 반환한다.
+        import copy
+        return copy.deepcopy(data) if data is not None else data
 
     @property
     def database(self):

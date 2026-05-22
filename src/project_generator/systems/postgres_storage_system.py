@@ -378,6 +378,21 @@ class PostgresStorageSystem(StorageSystem):
         return True
 
     def _collection_read(self, r: _Route) -> Optional[Dict[str, Any]]:
+        # jobs / requested_jobs 의 루트 컬렉션(namespace 미지정)은 AceBase 트리와
+        # 동일하게 {namespace: {job_id: value}} 2단계 구조로 반환한다.
+        # (job manager 가 get_children_data("requestedJobs") 결과를
+        #  root[namespace] 형태로 조회하기 때문 — 평면 구조면 잡을 못 찾는다.)
+        if not r.filters and r.table in ("jobs", "requested_jobs"):
+            with self._pool.connection() as conn, conn.cursor() as cur:
+                cur.execute(f"SELECT namespace, {r.key_col}, value FROM {r.table}")
+                rows = cur.fetchall()
+            if not rows:
+                return None
+            nested: Dict[str, Any] = {}
+            for ns, key, value in rows:
+                nested.setdefault(ns, {})[key] = value
+            return nested
+
         if r.filters:
             where = " AND ".join(f"{c} = %s" for c in r.filters)
             params = list(r.filters.values())

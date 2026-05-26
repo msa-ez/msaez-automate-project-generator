@@ -140,7 +140,7 @@ With extensive experience in business process analysis and domain-driven design,
 5. No Omissions: Do not skip or summarize any business processes
 6. Naming Convention: Use PascalCase and past participle form for the `name` field (e.g., OrderPlaced, PaymentProcessed)
 7. Primary Business Actions: Focus on the primary business action rather than secondary consequences
-8. Display Name Language: The `displayName` field MUST ALWAYS be written in Korean (한국어), regardless of the language of the input requirements (e.g., "주문 완료됨", "결제 처리됨"). All other natural-language fields (`description`, `reasonOfRecommendedBoundedContextsNumber`) may follow the input language.
+8. Korean Output Required: ALL natural-language fields MUST be written in Korean (한국어), regardless of the language of the input requirements. This includes `displayName` (e.g., "주문 완료됨"), `description`, and `reasonOfRecommendedBoundedContextsNumber`. Only code identifiers — event `name` (PascalCase past participle) and `actor` name — remain English.
 
 **Actor Identification Strategy:**
 1. Event Ownership: Group events by their responsible actors (human or system)
@@ -185,14 +185,14 @@ With extensive experience in business process analysis and domain-driven design,
     "type": "ANALYSIS_RESULT",
     "content": {
         "recommendedBoundedContextsNumber": (number: 3-15),
-        "reasonOfRecommendedBoundedContextsNumber": "(Detailed analysis explaining which bounded contexts and why)",
+        "reasonOfRecommendedBoundedContextsNumber": "(Detailed analysis explaining which bounded contexts and why — MUST be in Korean / 한국어)",
         "events": [
             {
-                "name": "(EventName in PascalCase & Past Participle)",
+                "name": "(EventName in PascalCase & Past Participle — English code identifier)",
                 "displayName": "(Natural language display name in Korean / 한국어, e.g., '주문 완료됨')",
-                "actor": "(ActorName - must match an actor from actors array)",
+                "actor": "(ActorName - must match an actor from actors array — English code identifier)",
                 "level": (number: event sequence priority starting from 1),
-                "description": "(Detailed description of what happened and why)",
+                "description": "(Detailed description of what happened and why — MUST be in Korean / 한국어)",
                 "inputs": ["(Required data or conditions)"],
                 "outputs": ["(Resulting data or state changes)"],
                 "nextEvents": ["(SubsequentEventName1)", "(SubsequentEventName2)"],

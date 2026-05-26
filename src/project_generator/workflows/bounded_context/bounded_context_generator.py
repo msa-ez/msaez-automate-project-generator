@@ -239,10 +239,10 @@ class BoundedContextWorkflow:
         
         LoggingUtil.info("BoundedContextWorkflow", f"BC 생성 시작 (Aspect: {devision_aspect})")
         
-        # 요구사항 언어 감지
-        user_story = requirements.get("userStory", "")
-        has_korean = any('\uac00' <= c <= '\ud7a3' for c in user_story[:500])
-        language = "Korean" if has_korean else "English"
+        # Force all natural-language outputs (alias / thoughts / explanations / role /
+        # reason etc.) to Korean regardless of input language. Code identifiers
+        # (PascalCase BC names) remain English — see Language Instructions below.
+        language = "Korean"
         
         # 프롬프트 구성
         # build prompt
@@ -552,8 +552,8 @@ class BoundedContextWorkflow:
         <section id="aggregate_extraction">
             <title>Aggregate Extraction</title>
             <rule id="1">**Identify Aggregates:** For each bounded context, extract aggregates that represent business entities and their consistency boundaries</rule>
-            <rule id="2">**Naming:** Aggregates should be named in PascalCase</rule>
-            <rule id="3">**Alias:** Provide alias in the same national language as the requirements</rule>
+            <rule id="2">**Naming:** Aggregates should be named in English PascalCase (code identifier)</rule>
+            <rule id="3">**Alias:** Provide alias in Korean (한국어) — required regardless of input language</rule>
         </section>
 
         <section id="traceability">
@@ -567,9 +567,10 @@ class BoundedContextWorkflow:
 
         <section id="language_instructions">
             <title>Language Instructions</title>
-            <rule id="1">**National Language Usage:** Use the same national language as the Requirements for: thoughts, explanations, alias, requirements</rule>
-            <rule id="2">**Bounded Context Names:** Must be written in English PascalCase</rule>
-            <rule id="3">**References in Explanations:** When referring to bounded context in explanations, use alias</rule>
+            <rule id="1">**Korean Output Required:** ALL natural-language fields MUST be written in Korean (한국어), regardless of the language of the input requirements. This applies to: thoughts, explanations[*].reason, explanations[*].interactionPattern, boundedContexts[*].alias, boundedContexts[*].role, boundedContexts[*].aggregates[*].alias, relations[*].name, relations[*].upStream.alias, relations[*].downStream.alias</rule>
+            <rule id="2">**Bounded Context Names:** Must be written in English PascalCase (e.g., OrderManagement, PaymentProcessing) — these are code identifiers, not natural-language fields</rule>
+            <rule id="3">**Aggregate Names:** Must be written in English PascalCase — code identifier</rule>
+            <rule id="4">**References in Explanations:** When referring to a bounded context in explanations, use its Korean alias</rule>
         </section>
     </guidelines>
 
@@ -597,49 +598,49 @@ class BoundedContextWorkflow:
     <description>The output must be a JSON object structured as follows:</description>
     <schema>
 {{
-    "thoughts": "(Explanations of how Bounded Contexts were derived: cohesion & coupling analysis, domain expertise, technical cohesion, persona-based division, etc.)",
+    "thoughts": "(Explanations of how Bounded Contexts were derived: cohesion & coupling analysis, domain expertise, technical cohesion, persona-based division, etc. — MUST be in Korean / 한국어)",
     "boundedContexts": [
         {{
-            "name": "(Bounded Context name in PascalCase)",
-            "alias": "(Alias of Bounded Context in national language of Requirements)",
+            "name": "(Bounded Context name in English PascalCase — code identifier)",
+            "alias": "(Alias of Bounded Context — MUST be in Korean / 한국어, e.g., '주문 관리')",
             "importance": "Core Domain" || "Supporting Domain" || "Generic Domain",
             "complexity": (number: 0.0-1.0, technical implementation difficulty),
             "differentiation": (number: 0.0-1.0, business differentiation value),
             "implementationStrategy": "Event Sourcing" || "Rich Domain Model" || "Transaction Script" || "Active Record" || "PBC: (pbc-name)",
             "aggregates": [
                 {{
-                    "name": "(Aggregate name in PascalCase)",
-                    "alias": "(Alias of Aggregate in language of Requirements)"
+                    "name": "(Aggregate name in English PascalCase — code identifier)",
+                    "alias": "(Alias of Aggregate — MUST be in Korean / 한국어, e.g., '주문')"
                 }}
             ],
             "events": [], // All events that are composed from this Bounded Context
             "requirements": [], // Must be empty array
-            "role": "(Explanation of what to do and how this Bounded Context works)",
+            "role": "(Explanation of what to do and how this Bounded Context works — MUST be in Korean / 한국어)",
             "roleRefs": [[[startLineNumber, "minimal start phrase"], [endLineNumber, "minimal end phrase"]]]
         }}
     ],
     "relations": [
         {{
-            "name": "(Name of relation between Bounded Contexts)",
+            "name": "(Name of relation between Bounded Contexts — MUST be in Korean / 한국어)",
             "type": "(Relation type - refer to Additional Rules in user input for allowed types)",
             "upStream": {{
-                "name": "(Name of upstream Bounded Context)",
-                "alias": "(Alias of upstream Bounded Context in language of Requirements)"
+                "name": "(English PascalCase name of upstream Bounded Context — code identifier)",
+                "alias": "(Alias of upstream Bounded Context — MUST be in Korean / 한국어)"
             }},
             "downStream": {{
-                "name": "(Name of downstream Bounded Context)",
-                "alias": "(Alias of downstream Bounded Context in language of Requirements)"
+                "name": "(English PascalCase name of downstream Bounded Context — code identifier)",
+                "alias": "(Alias of downstream Bounded Context — MUST be in Korean / 한국어)"
             }},
             "refs": [[[startLineNumber, "minimal start phrase"], [endLineNumber, "minimal end phrase"]]]
         }}
     ],
     "explanations": [
         {{
-            "sourceContext": "(Source Bounded Context alias)",
-            "targetContext": "(Target Bounded Context alias)",
+            "sourceContext": "(Source Bounded Context alias — Korean / 한국어)",
+            "targetContext": "(Target Bounded Context alias — Korean / 한국어)",
             "relationType": "(Relationship type)",
-            "reason": "(Explanation of why this type was chosen)",
-            "interactionPattern": "(Description of how these contexts interact)",
+            "reason": "(Explanation of why this type was chosen — MUST be in Korean / 한국어)",
+            "interactionPattern": "(Description of how these contexts interact — MUST be in Korean / 한국어)",
             "refs": [[[startLineNumber, "minimal start phrase"], [endLineNumber, "minimal end phrase"]]]
         }}
     ]

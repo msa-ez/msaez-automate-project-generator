@@ -123,8 +123,7 @@ def generate_sitemap(state: SiteMapState) -> SiteMapState:
         LoggingUtil.info(state["job_id"], f"Processing chunk {current_chunk_index + 1}/{total_chunks}...")
         
         # 언어 감지 (한국어 여부 체크)
-        has_korean = any('\uac00' <= c <= '\ud7a3' for c in chunk_text[:500])
-        language = "Korean" if has_korean else "English"
+        language = "Korean"  # forced — natural-language outputs always Korean regardless of input
         
         llm = create_chat_llm(
             temperature=0.2  # Frontend와 동일

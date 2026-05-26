@@ -135,8 +135,7 @@ class UserStoryWorkflow:
         rag_context_str = self._format_rag_context(rag_context)
         
         # 요구사항 언어 감지 (간단한 휴리스틱)
-        has_korean = any('\uac00' <= c <= '\ud7a3' for c in requirements[:500])
-        language = "Korean" if has_korean else "English"
+        language = "Korean"  # forced — natural-language outputs always Korean regardless of input
         
         # ✅ 기존 데이터 프롬프트 생성 (중복 방지)
         existing_data_prompt = self._format_existing_data(

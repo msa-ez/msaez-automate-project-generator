@@ -95,8 +95,7 @@ class RequirementsSummarizerWorkflow:
         LoggingUtil.info("SummarizerWorkflow", f"요약 시작 (Iteration {iteration})")
         
         # 요구사항 언어 감지 (간단한 휴리스틱)
-        has_korean = any('\uac00' <= c <= '\ud7a3' for c in requirements[:500])
-        language = "Korean" if has_korean else "English"
+        language = "Korean"  # forced — natural-language outputs always Korean regardless of input
 
         # 입력 청크에 포함된 실제 라인 번호 범위를 파싱
         # (청크가 startLine > 1 인 경우 "1 to N" 으로 잘못 알려주면 LLM 이 1..N 범위로 hallucinate 함)

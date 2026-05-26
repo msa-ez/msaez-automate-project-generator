@@ -128,8 +128,7 @@ class RequirementsMappingWorkflow:
             }
         
         # 언어 감지
-        has_korean = any('\uac00' <= c <= '\ud7a3' for c in requirements_text[:500])
-        language = "Korean" if has_korean else "English"
+        language = "Korean"  # forced — natural-language outputs always Korean regardless of input
         
         # Frontend와 동일한 프롬프트 구성
         prompt = self._build_prompt(bounded_context, requirements_text, language, is_ui_bc)

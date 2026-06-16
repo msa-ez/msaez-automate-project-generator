@@ -488,33 +488,34 @@ class RequirementsMappingWorkflow:
                     if end_match:
                         end_line_text = end_match.group(1)
                     
-                    # phrase의 위치 찾기 (컬럼 위치)
+                    # phrase의 위치 찾기 (컬럼 위치 + 재배치된 라인 번호)
                     # 프론트엔드의 tryRelocate 로직과 유사: phrase를 찾을 수 없으면 ±5 라인 탐색
+                    # 중요: relocate 가 일어나면 라인 번호도 함께 갱신해야 함.
+                    # (기존 구현은 col 만 다른 라인에서 따오고 line 은 원본 그대로 → frankenstein ref 생성)
                     def find_phrase_position(line_num, phrase, current_line_text, is_end=False):
-                        """phrase를 찾고, 없으면 ±5 라인 범위에서 탐색"""
+                        """phrase를 찾아 (col, line_num) 반환. 없으면 None."""
                         if not phrase or not isinstance(phrase, str) or not phrase.strip():
                             return None
-                        
+
                         # 현재 라인에서 찾기 (이미 추출된 텍스트 사용)
                         if current_line_text and phrase in current_line_text:
                             pos = current_line_text.find(phrase)
-                            return pos + (len(phrase) if is_end else 0) + 1  # 1-based
-                        
+                            return (pos + (len(phrase) if is_end else 0) + 1, line_num)  # 1-based
+
                         # 현재 라인에서 못 찾으면 ±5 라인 범위에서 탐색
-                        # 라인 번호 목록 정렬
                         sorted_line_nums = sorted(line_number_map.keys())
                         current_line_idx = None
                         for idx, ln in enumerate(sorted_line_nums):
                             if ln == line_num:
                                 current_line_idx = idx
                                 break
-                        
+
                         if current_line_idx is None:
                             LoggingUtil.warning("RequirementsMapper", f"Line {line_num} not found in line_number_map")
                             return None
-                        
+
                         for offset in range(1, 6):
-                            # 위쪽 라인 확인
+                            # 위쪽 라인 확인 (프론트엔드와 동일하게 위 → 아래 순서)
                             if current_line_idx - offset >= 0:
                                 check_line = sorted_line_nums[current_line_idx - offset]
                                 check_idx = line_number_map[check_line]
@@ -525,8 +526,8 @@ class RequirementsMappingWorkflow:
                                         check_content = match.group(1)
                                     if phrase in check_content:
                                         pos = check_content.find(phrase)
-                                        return pos + (len(phrase) if is_end else 0) + 1
-                            
+                                        return (pos + (len(phrase) if is_end else 0) + 1, check_line)
+
                             # 아래쪽 라인 확인
                             if current_line_idx + offset < len(sorted_line_nums):
                                 check_line = sorted_line_nums[current_line_idx + offset]
@@ -538,31 +539,35 @@ class RequirementsMappingWorkflow:
                                         check_content = match.group(1)
                                     if phrase in check_content:
                                         pos = check_content.find(phrase)
-                                        return pos + (len(phrase) if is_end else 0) + 1
-                        
-                        # phrase를 찾지 못하면 기본 위치 사용
+                                        return (pos + (len(phrase) if is_end else 0) + 1, check_line)
+
                         return None
-                    
-                    # start_phrase 처리
+
+                    # start_phrase 처리 — relocate 시 line 도 함께 갱신
                     start_col_result = find_phrase_position(start_line_num, start_phrase, start_line_text, is_end=False)
                     if start_col_result is not None:
-                        start_col = start_col_result
+                        start_col, start_line_num = start_col_result
                     else:
                         # phrase를 찾을 수 없으면 라인 시작부터
                         start_col = 1
-                    
-                    # end_phrase 처리
+
+                    # end_phrase 처리 — relocate 시 line 도 함께 갱신
                     end_col_result = find_phrase_position(end_line_num, end_phrase, end_line_text, is_end=True)
                     if end_col_result is not None:
-                        end_col = end_col_result
+                        end_col, end_line_num = end_col_result
                     else:
                         # phrase를 찾을 수 없으면 라인 끝까지
                         end_col = len(end_line_text) if end_line_text else 1
-                    
+
                     # 최소값은 1 (1-based column)
                     start_col = max(1, start_col)
                     end_col = max(1, end_col)
-                    
+
+                    # relocate 결과로 start > end 가 되면 swap (프론트엔드 _sanitizeRefsArray 와 동일)
+                    if end_line_num < start_line_num or (end_line_num == start_line_num and end_col < start_col):
+                        start_line_num, end_line_num = end_line_num, start_line_num
+                        start_col, end_col = end_col, start_col
+
                     converted_refs.append([[start_line_num, start_col], [end_line_num, end_col]])
             
             if converted_refs:

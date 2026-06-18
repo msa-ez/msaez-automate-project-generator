@@ -280,19 +280,22 @@ class RequirementsMappingWorkflow:
 
             <section id="reference_precision">
                 <title>Reference Traceability Requirements</title>
-                <rule id="1">**Refs Format:** Each ref must contain [[startLineNumber, "minimal_start_phrase"], [endLineNumber, "minimal_end_phrase"]]</rule>
-                <rule id="2">**Minimal Phrases:** Use 1-2 word phrases that uniquely identify the position in the line</rule>
-                <rule id="3">**Shortest Possible:** Use the shortest possible phrase that can locate the specific part of requirements</rule>
-                <rule id="4">**Valid Line Numbers:** Only reference lines that exist in the provided content</rule>
-                <rule id="5">**Precision:** Point to exact line numbers and phrases for accurate traceability</rule>
+                <rule id="1">**Refs Format:** Each ref must contain [[startLineNumber, "start_anchor_phrase"], [endLineNumber, "end_anchor_phrase"]]</rule>
+                <rule id="2">**Clause-Aligned Phrases:** Choose 2-4 token phrases that span a meaningful clause boundary. The start_phrase should be the FIRST few tokens of the meaningful content; the end_phrase should be the LAST few tokens. Do NOT pick single-character phrases or particles that land mid-word.</rule>
+                <rule id="3">**Skip Leading Markdown Noise:** When anchoring, ignore leading bullets (`-`), indentation, and quote markers (`>`). Anchor on the first substantive word (e.g. `Given`, `When`, `Then`, `As a`, the noun starting the clause).</rule>
+                <rule id="4">**Do NOT Anchor On Structural Lines:** Skip markdown headers (lines starting with `#`, `##`, `###`, `####`, `#####`, `######`), table rows (lines starting with `|`), and separator lines (`---`). These provide no traceability value. Anchor only on prose lines such as user story narratives (`> *As a ...`), acceptance criteria (`- Given/When/Then ...`), and task entries (`- [PROJ-US-FR-...-TASK-...]`).</rule>
+                <rule id="5">**Avoid Mid-Token Truncation:** Never end a phrase inside a word, Korean character cluster, or particle. The end_phrase MUST be a complete word/clause that naturally terminates the relevant content.</rule>
+                <rule id="6">**Valid Line Numbers:** Only reference lines that exist in the provided content.</rule>
+                <rule id="7">**Zero-Length Forbidden:** start and end positions must NOT be identical. A ref of zero length is meaningless.</rule>
             </section>
 
             <section id="accuracy_requirements">
                 <title>Precision and Accuracy Standards</title>
-                <rule id="1">**Exact Segments:** Be precise in identifying the exact text segments that justify each requirement mapping</rule>
-                <rule id="2">**Avoid Vagueness:** Avoid generic or vague references that don't clearly support the bounded context</rule>
-                <rule id="3">**Verification:** Ensure that the referenced text actually justifies the requirement's relevance to the bounded context</rule>
-                <rule id="4">**Comprehensive Mapping:** If multiple sections contribute to a single requirement, include all relevant references</rule>
+                <rule id="1">**Per-Requirement Specificity:** When multiple distinct user stories or acceptance criteria contribute to this Bounded Context, produce ONE ref per requirement clause. Do NOT reuse a single broad block ref (covering 3+ lines) as the only mapping for several different items — that destroys per-item traceability.</rule>
+                <rule id="2">**Exact Segments:** Be precise in identifying the exact text segments that justify each requirement mapping.</rule>
+                <rule id="3">**Avoid Vagueness:** Avoid generic or vague references that don't clearly support the bounded context.</rule>
+                <rule id="4">**Verification:** Ensure that the referenced text actually justifies the requirement's relevance to the bounded context.</rule>
+                <rule id="5">**Comprehensive Mapping:** If multiple sections contribute to a single requirement, include all relevant references.</rule>
             </section>
 
             <section id="decision_strategy">
@@ -309,14 +312,26 @@ class RequirementsMappingWorkflow:
             <title>Example of refs Format</title>
             <description>If requirements contain:</description>
             <example_requirements>
-<1>Users can browse and purchase products</1>
-<2>Payment processing with multiple providers</2>
-<3>Order tracking and status updates</3>
-<4>Inventory management for products</4>
+<1>##### [PROJ-US-FR-001] Asian Metal 시황 데이터 자동 수집 구현</1>
+<2>> *As a 연동제 운영 담당자, I want to Asian Metal 시황 데이터를 일정 주기로 자동 수집·정제하여 표준 스키마로 저장하고 So that 정확한 시황 정보를 연동제 산출에 사용할 수 있다.*</2>
+<3>- Given 외부 수집 설정이 등록되어 있고</3>
+<4>         When 스케줄 시간(예: 매일 06:00, UTC 기준)에 수집 작업이 시작되면</4>
+<5>         Then 수집 파이프라인이 정상 실행되어 시황데이터가 표준 스키마로 저장된다.</5>
+<6>- Given 수집된 데이터에 결측/중복/급변치가 존재할 때</6>
             </example_requirements>
             <example_refs>
-- For "Order" bounded context referencing line 1 → refs: [[1, "Users"], [1, "purchase"]]
-- For "Order" bounded context referencing line 3 → refs: [[3, "Order"], [3, "tracking"]]
+- GOOD — anchors clause boundaries (user story narrative):
+  refs: [[2, "As a 연동제"], [2, "사용할 수 있다"]]
+- GOOD — Given/When/Then block (start at "Given" first word, end at the period of "Then" clause):
+  refs: [[3, "Given 외부"], [5, "저장된다"]]
+- GOOD — second acceptance criterion (separate ref, NOT merged with the above):
+  refs: [[6, "Given 수집된"], [6, "존재할 때"]]
+- BAD — anchors on a markdown header (line 1 starts with `#####`):
+  refs: [[1, "PROJ"], [1, "구현"]]
+- BAD — single-character end_phrase that cuts mid-word ("외" from "외부"):
+  refs: [[3, "Given"], [3, "외"]]   ← end stops inside "외부", visible to user as truncated text
+- BAD — zero-length:
+  refs: [[3, "Given"], [3, "Given"]]
             </example_refs>
         </refs_format_example>
     </core_instructions>
@@ -367,6 +382,23 @@ class RequirementsMappingWorkflow:
         Frontend의 RefsTraceUtil.sanitizeAndConvertRefs와 동일한 역할
         refs 형식 변환: [[startLine, "phrase"], [endLine, "phrase"]] → [[[startLine, startCol], [endLine, endCol]]]
         """
+        # Markdown 구조 라인 판별: ref 끝에서 헤더/표/구분선 위의 ref 를 drop 하기 위한 helper.
+        # (LLM 이 '##### [PROJ-US-FR-001]' 같은 헤더 prefix 나 1.1 절 표 row 를 anchor 로 잡는 노이즈 제거)
+        def _is_structural_line(text):
+            if text is None:
+                return True
+            stripped = text.strip()
+            if not stripped:
+                return True
+            if stripped.startswith('#'):  # markdown 헤더
+                return True
+            if stripped.startswith('|'):  # markdown 표 row
+                return True
+            # 구분선 ('---', '----', ...) — '-' 와 공백만으로 구성
+            if all(c in '- \t' for c in stripped):
+                return True
+            return False
+
         lines = requirements_text.split('\n')
         
         # 라인 번호 맵 생성: 절대 라인 번호 → 배열 인덱스
@@ -567,6 +599,17 @@ class RequirementsMappingWorkflow:
                     if end_line_num < start_line_num or (end_line_num == start_line_num and end_col < start_col):
                         start_line_num, end_line_num = end_line_num, start_line_num
                         start_col, end_col = end_col, start_col
+
+                    # ── 노이즈 필터 ─────────────────────────────────────
+                    # 1) zero-length ref drop — 시각화 의미 없음
+                    if start_line_num == end_line_num and start_col == end_col:
+                        LoggingUtil.debug("RequirementsMapper", f"Drop zero-length ref: [[{start_line_num},{start_col}],[{end_line_num},{end_col}]]")
+                        continue
+                    # 2) 단일 라인 ref 가 구조 라인(markdown 헤더/표/구분선/공백) 위에 있으면 drop
+                    #    → 헤더 prefix '##### [PROJ-US-FR-...]' 또는 1.1 절 표 row 가 ref 로 들어오는 케이스 제거
+                    if start_line_num == end_line_num and _is_structural_line(start_line_text):
+                        LoggingUtil.debug("RequirementsMapper", f"Drop structural-line ref on line {start_line_num}: {start_line_text[:60]!r}")
+                        continue
 
                     converted_refs.append([[start_line_num, start_col], [end_line_num, end_col]])
             

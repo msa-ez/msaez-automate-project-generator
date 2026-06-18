@@ -177,11 +177,15 @@ Valid line number range: {min_line} ~ {max_line}
             <section id="traceability">
                 <title>Source Traceability Requirements</title>
                 <rule id="1">**Mandatory Refs:** Each field MUST include a 'refs' array that traces back to specific parts of the functional requirements</rule>
-                <rule id="2">**Refs Format:** Use format [[[startLineNumber, "minimal_start_phrase"], [endLineNumber, "minimal_end_phrase"]]]</rule>
-                <rule id="3">**Minimal Phrases:** Use 1-2 word phrases that uniquely identify the position in the requirement text</rule>
-                <rule id="4">**Valid Line Numbers:** Refs must reference valid line numbers from the provided functional requirements section</rule>
-                <rule id="5">**Multiple References:** Multiple reference ranges can be included if a field is derived from multiple requirement sections</rule>
-                <rule id="6">**Complete Traceability:** Every generated field must have at least one traceability reference</rule>
+                <rule id="2">**Refs Format:** Use format [[[startLineNumber, "start_anchor_phrase"], [endLineNumber, "end_anchor_phrase"]]]</rule>
+                <rule id="3">**Clause-Aligned Phrases:** Choose 2-4 token phrases that mark a meaningful clause boundary. The start_phrase should be the FIRST few tokens of the substantive content; the end_phrase should be the LAST few tokens. Do NOT pick single-character phrases or particles that land mid-word or mid-Korean-character-cluster.</rule>
+                <rule id="4">**Avoid Mid-Token Truncation:** Never end inside a word. The end_phrase MUST be a complete word/clause that naturally terminates the relevant content.</rule>
+                <rule id="5">**Skip Structural Lines:** Do NOT anchor on markdown headers (`#####`, `######`), table rows starting with `|`, or separator lines (`---`). Anchor only on prose lines (user story narratives, Given/When/Then clauses, task entries).</rule>
+                <rule id="6">**Per-Field Specificity:** Each field's refs should point to the SPECIFIC clause(s) that motivate THAT field. Do NOT reuse a single broad multi-line block ref as the mapping for every field in the aggregate — that destroys per-field traceability.</rule>
+                <rule id="7">**Zero-Length Forbidden:** start and end positions must NOT be identical.</rule>
+                <rule id="8">**Valid Line Numbers:** Refs must reference valid line numbers from the provided functional requirements section.</rule>
+                <rule id="9">**Multiple References:** Multiple reference ranges can be included if a field is derived from multiple requirement sections.</rule>
+                <rule id="10">**Complete Traceability:** Every generated field must have at least one traceability reference.</rule>
             </section>
 
             <section id="quality">
@@ -212,7 +216,7 @@ Valid line number range: {min_line} ~ {max_line}
 - "status" field for course lifecycle → refs: [[[7, "CourseCreated"], [8, "CoursePublished"]]]
 - "student_id" field for enrollment → refs: [[[4, "Students"], [9, "StudentEnrolled"]]]
             </example_refs>
-            <note>The refs array contains ranges where each range is [[startLine, startPhrase], [endLine, endPhrase]]. Use the shortest possible phrase that can locate the specific part of requirements.</note>
+            <note>The refs array contains ranges where each range is [[startLine, startPhrase], [endLine, endPhrase]]. Choose phrases that align with clause boundaries — first 2-3 tokens of the substantive content for start, last 2-3 tokens for end. Avoid single-character phrases that land mid-word.</note>
         </refs_format_example>
     </core_instructions>
     
@@ -730,6 +734,36 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
         # 의 스키마 검증을 깨고 ES 생성 자체를 중단시킨다 (실 사용자 케이스: previewAttributes
         # 의 col 위치에 string 이 박힌 채 ESDialoger.vue:3020 에서 throw).
         # → 모든 refs 를 순회해 string col 이 남아있는 ref 는 drop 하거나 col=1 로 강제.
+        # 동시에 zero-length 와 markdown 구조 라인(헤더/표/구분선) 위의 단일-라인 ref 도 drop.
+
+        # 원본 user story 라인 룩업 (구조 라인 필터용)
+        raw_lines = []
+        if original_requirements:
+            raw_lines = original_requirements.split('\n')
+
+        def _is_structural_line_text(text):
+            if text is None:
+                return True
+            stripped = text.strip()
+            if not stripped:
+                return True
+            if stripped.startswith('#'):
+                return True
+            if stripped.startswith('|'):
+                return True
+            if all(c in '- \t' for c in stripped):
+                return True
+            return False
+
+        def _line_content(line_num):
+            if not raw_lines:
+                return None
+            # line_num is 1-based
+            idx = line_num - 1
+            if 0 <= idx < len(raw_lines):
+                return raw_lines[idx]
+            return None
+
         def _coerce_refs(refs):
             if not isinstance(refs, list):
                 return []
@@ -748,9 +782,18 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 s_col = s[1] if isinstance(s[1], (int, float)) else 1
                 e_col = e[1] if isinstance(e[1], (int, float)) else max(s_col, 1)
                 try:
-                    out.append([[s_line, int(s_col)], [e_line, int(e_col)]])
+                    s_col_i = int(s_col); e_col_i = int(e_col)
                 except (TypeError, ValueError):
                     continue
+                # zero-length drop
+                if s_line == e_line and s_col_i == e_col_i:
+                    continue
+                # 단일 라인 ref 가 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
+                if s_line == e_line:
+                    line_text = _line_content(s_line)
+                    if line_text is not None and _is_structural_line_text(line_text):
+                        continue
+                out.append([[s_line, s_col_i], [e_line, e_col_i]])
             return out
 
         coerced_total = 0

@@ -714,15 +714,61 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
             # previewFields 변환
             for field in assignment.get('previewFields', []):
                 convert_field_refs(field, 'previewFields')
-            
+
             # previewAttributes 변환 (previewFields와 동일한 구조)
             for field in assignment.get('previewAttributes', []):
                 convert_field_refs(field, 'previewAttributes')
-        
+
         if failed_fields > 0:
-            LoggingUtil.warning("PreviewFieldsGenerator", 
+            LoggingUtil.warning("PreviewFieldsGenerator",
                 f"Refs 변환: {converted_fields}/{total_fields} 성공, {failed_fields} 실패 "
                 f"(sanitize: {sanitize_failed}, validate: {validate_failed}, traceMap: {trace_map_failed})")
+
+        # 최종 cleanup: 위 변환 경로 어디에선가 sanitize 가 실패해 refs 안에 LLM 의
+        # 원본 phrase-string (예: [[3, "create"], [3, "course"]]) 가 그대로 남는 경우가 있다.
+        # 이 형태는 프론트 ESDialogerTraceUtil.__validateExtractTraceInfoFromDraftOptionsParams
+        # 의 스키마 검증을 깨고 ES 생성 자체를 중단시킨다 (실 사용자 케이스: previewAttributes
+        # 의 col 위치에 string 이 박힌 채 ESDialoger.vue:3020 에서 throw).
+        # → 모든 refs 를 순회해 string col 이 남아있는 ref 는 drop 하거나 col=1 로 강제.
+        def _coerce_refs(refs):
+            if not isinstance(refs, list):
+                return []
+            out = []
+            for r in refs:
+                if not isinstance(r, list) or len(r) != 2:
+                    continue
+                s, e = r
+                if not (isinstance(s, list) and len(s) == 2 and isinstance(e, list) and len(e) == 2):
+                    continue
+                try:
+                    s_line = int(s[0]); e_line = int(e[0])
+                except (TypeError, ValueError):
+                    continue
+                # col 이 숫자가 아니면 정수로 강제 (string phrase → 1 / line 끝)
+                s_col = s[1] if isinstance(s[1], (int, float)) else 1
+                e_col = e[1] if isinstance(e[1], (int, float)) else max(s_col, 1)
+                try:
+                    out.append([[s_line, int(s_col)], [e_line, int(e_col)]])
+                except (TypeError, ValueError):
+                    continue
+            return out
+
+        coerced_total = 0
+        for assignment in aggregate_field_assignments:
+            for field_list_key in ('previewFields', 'previewAttributes'):
+                for field in assignment.get(field_list_key, []) or []:
+                    if 'refs' not in field:
+                        continue
+                    before = field['refs']
+                    after = _coerce_refs(before)
+                    # 변경 횟수 카운트 (string 이 들어있던 ref 가 drop 또는 col 강제된 경우)
+                    if before != after:
+                        coerced_total += 1
+                    field['refs'] = after
+
+        if coerced_total > 0:
+            LoggingUtil.warning("PreviewFieldsGenerator",
+                f"⚠️ 최종 cleanup 단계에서 sanitize 미적용 refs {coerced_total} 건을 schema-valid 형태로 강제 변환했습니다.")
     
     # ==================== Workflow Construction ====================
     

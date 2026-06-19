@@ -65,8 +65,108 @@ class RefsTraceUtil:
             converted_data,
             lambda refs_array: RefsTraceUtil._clamp_refs_array(refs_array, line_contents, min_line, max_line, clamp)
         )
-        
+
+        # 5단계: 구조 라인 ref relocate — LLM 이 헤더 / TOC 표 row 를 anchor 로 잡은 경우
+        # 같은 user story 의 본문 narrative 라인으로 ref 위치만 옮긴다. zero-length 와
+        # 비-user-story 헤더 / FR-ID 없는 구분선 / 빈 라인은 drop. 본문 라인은 그대로.
+        final_data = RefsTraceUtil._search_refs_array_recursively(
+            final_data,
+            lambda refs_array: RefsTraceUtil._relocate_structural_refs(refs_array, line_contents)
+        )
+
         return final_data
+
+    @staticmethod
+    def _relocate_structural_refs(refs_array: List, line_contents: List[str]) -> List:
+        """구조 라인 ref (헤더 / TOC 표 row) 를 같은 user story 의 본문으로 옮긴다.
+
+        - zero-length / 빈줄 / 구분선 → drop
+        - 본문 라인 → 그대로
+        - markdown 헤더 / 표 row 에서 [PROJ-US-FR/NFR-XXX] 추출됨 → 그 user story 의
+          `##### [...]` 본문 narrative ('> *As a ...') 또는 첫 content 라인으로 relocate
+        - 헤더/표 row 인데 FR-ID 없음 → drop
+        """
+        if not refs_array or not line_contents:
+            return refs_array
+
+        # user story 본문 위치 인덱스 (1-회 계산)
+        us_index = {}
+        us_header_re = re.compile(r'^\s*#{4,6}\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]')
+        narrative_re = re.compile(r'^\s*>\s*\*?\s*As a')
+        for i, ln in enumerate(line_contents):
+            m = us_header_re.match(ln or '')
+            if not m: continue
+            us_id = m.group(1)
+            body_end = len(line_contents)
+            for j in range(i+1, len(line_contents)):
+                nxt = (line_contents[j] or '').strip()
+                if not nxt: continue
+                if us_header_re.match(nxt) or nxt.startswith('---'):
+                    body_end = j
+                    break
+            narrative_line = None
+            first_content = None
+            for j in range(i+1, body_end):
+                raw = line_contents[j] or ''
+                stripped = raw.strip()
+                if not stripped: continue
+                if stripped.startswith('#'): continue
+                if stripped.startswith('|'): continue
+                if all(c in '- \t' for c in stripped) and len(stripped) >= 3: continue
+                if first_content is None: first_content = j + 1
+                if narrative_re.match(raw):
+                    narrative_line = j + 1
+                    break
+            target = narrative_line or first_content
+            if target:
+                us_index[us_id] = target
+
+        def _classify(text):
+            if text is None: return 'oob'
+            s = text.strip()
+            if not s: return 'empty'
+            if s.startswith('#'): return 'header'
+            if s.startswith('|'): return 'table'
+            if all(c in '- \t' for c in s) and len(s) >= 3: return 'sep'
+            return 'content'
+
+        result = []
+        for mono in refs_array:
+            if not isinstance(mono, list) or len(mono) != 2:
+                result.append(mono)
+                continue
+            s, e = mono
+            if not (isinstance(s, list) and len(s) == 2 and isinstance(e, list) and len(e) == 2):
+                result.append(mono)
+                continue
+            try:
+                sL = int(s[0]); sC = int(s[1])
+                eL = int(e[0]); eC = int(e[1])
+            except (TypeError, ValueError):
+                result.append(mono)
+                continue
+            # zero-length
+            if sL == eL and sC == eC:
+                continue
+            idx = sL - 1
+            if not (0 <= idx < len(line_contents)):
+                result.append(mono)
+                continue
+            src = line_contents[idx]
+            cls = _classify(src)
+            if cls == 'content':
+                result.append(mono)
+                continue
+            if cls in ('empty', 'sep'):
+                continue
+            # header / table — FR-ID 추출
+            m = re.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src or '')
+            if not m: continue
+            target_line = us_index.get(m.group(1))
+            if not target_line: continue
+            tcontent = line_contents[target_line - 1] if 0 <= target_line - 1 < len(line_contents) else ''
+            result.append([[target_line, 1], [target_line, max(1, len(tcontent))]])
+        return result
     
     @staticmethod
     def convert_to_original_refs_using_trace_map(refs: List, trace_map: Dict) -> List:

@@ -136,15 +136,29 @@ class RequirementsMappingWorkflow:
         try:
             # Structured Output 사용
             result_data = self.llm_structured.invoke(prompt)
-            
+
             relevant_reqs = result_data.get('relevantRequirements', [])
-            
+
+            # Coverage 자동 보정: chunk 안의 user story 헤더 개수와 매핑된 refs 수를 비교해
+            # under-coverage 상태면 추가 호출로 "what else might match?" 보강 (최대 1회 retry).
+            # 매핑 결과가 매우 sparse 한 케이스 (BC 가 multiple FR 을 소유하지만 1-2 개만 잡힌 경우) 해소.
+            try:
+                relevant_reqs = self._augment_under_covered_mapping(
+                    bounded_context=bounded_context,
+                    requirements_text=requirements_text,
+                    language=language,
+                    is_ui_bc=is_ui_bc,
+                    initial_reqs=relevant_reqs
+                )
+            except Exception as augment_err:
+                LoggingUtil.warning("RequirementsMapper", f"Coverage augmentation failed (continuing with initial result): {augment_err}")
+
             # Frontend와 동일한 순서:
             # 1. _wrapRefArrayToModel: refs를 한 겹 더 감싸기 (DDL 특별 처리 없음!)
             for req in relevant_reqs:
                 if req.get('refs') and len(req['refs']) > 0:
                     req['refs'] = [req['refs']]
-            
+
             # 2. sanitizeAndConvertRefs: refs 변환
             # LLM이 반환한 refs 형식: [[startLine, "phrase"], [endLine, "phrase"]]
             # 이를 [[[startLine, startCol], [endLine, endCol]]] 형식으로 변환해야 함
@@ -161,14 +175,14 @@ class RequirementsMappingWorkflow:
                     )
                     req_copy['refs'] = sanitized_data.get('refs', refs) if isinstance(sanitized_data, dict) else sanitized_data
                 sanitized_reqs.append(req_copy)
-            
+
             # 3. getReferencedUserRequirements: text 필드 추가
             enriched_reqs = self._add_text_to_requirements(sanitized_reqs, requirement_chunk)
-            
+
             LoggingUtil.info("RequirementsMapper", f"📝 After text extraction: {len(enriched_reqs)} requirements")
-            
+
             LoggingUtil.info("RequirementsMapper", f"✅ Found {len(enriched_reqs)} relevant requirements for {bc_name}")
-            
+
             return {
                 "relevant_requirements": enriched_reqs,
                 "progress": 80,
@@ -192,6 +206,117 @@ class RequirementsMappingWorkflow:
                 }]
             }
     
+    def _count_user_story_headers(self, requirements_text: str) -> int:
+        """requirements_text 안의 user story 헤더 (##### [PROJ-US-...]) 개수 추정."""
+        if not requirements_text:
+            return 0
+        # XML-wrapped lines (<N>content</N>) 또는 raw 둘 다 처리
+        return len(re.findall(r'#####\s+\[[A-Za-z][\w-]*US-(?:FR|NFR)-\d+\]', requirements_text))
+
+    def _augment_under_covered_mapping(self, bounded_context, requirements_text, language, is_ui_bc, initial_reqs) -> list:
+        """
+        Coverage 보정: 첫 LLM 호출 결과의 매핑이 충분치 않으면 추가 호출로 보강.
+
+        판정 기준:
+        - 청크 안의 user story 헤더 개수 N 을 추정
+        - 매핑된 refs 수가 N * 2 보다 적으면 under-covered 로 판정
+          (한 user story 당 최소한 narrative + criterion 2 개는 기대)
+        - 단 청크가 1 개 user story 만 담고 있으면 retry 안 함 (이미 LLM 이 그 한 개에 집중)
+        """
+        bc_name = bounded_context.get('name', 'Unknown')
+        header_count = self._count_user_story_headers(requirements_text)
+
+        if header_count < 2:
+            return initial_reqs  # 단일 user story chunk — retry 의미 없음
+
+        current_refs_count = sum(1 for r in initial_reqs if r.get('refs'))
+        target_min = header_count * 2
+
+        if current_refs_count >= target_min:
+            return initial_reqs  # 충분히 매핑됨
+
+        LoggingUtil.info(
+            "RequirementsMapper",
+            f"🔎 Coverage check for {bc_name}: {current_refs_count} refs vs target ≥{target_min} "
+            f"(chunk has {header_count} user story headers) — augmenting via retry."
+        )
+
+        # 첫 결과를 LLM 에 보여주고 "what else might match from THIS chunk?" 추가 요청
+        already_found_summary = "\n".join(
+            f"- {r.get('type','?')}: refs={r.get('refs')}" for r in initial_reqs
+        ) or "(none)"
+
+        augment_prompt = self._build_prompt(bounded_context, requirements_text, language, is_ui_bc)
+        augment_prompt += f"""
+
+<augmentation_request>
+The previous mapping pass found only {current_refs_count} references for this Bounded Context, but the requirements chunk contains {header_count} user story headers. This is likely UNDER-COVERAGE.
+
+Already-found references (DO NOT re-emit these):
+{already_found_summary}
+
+**Your task in this pass:** Walk the requirements chunk again and find ADDITIONAL relevant content this Bounded Context should be traced to — especially:
+- Acceptance criteria (Given/When/Then blocks) that were skipped
+- Task entries (`- [PROJ-US-FR-...-TASK-...]`) that this BC implements
+- Other user stories (FR/NFR) under the same epic that share aggregates or events with this BC
+- Non-functional requirements (performance, security, etc.) that constrain this BC's operations
+
+Return ONLY the NEW references — do not include the already-found ones.
+If after honest re-review there really is nothing more, return an empty array.
+</augmentation_request>
+"""
+
+        try:
+            augment_data = self.llm_structured.invoke(augment_prompt)
+            extra_reqs = augment_data.get('relevantRequirements', []) or []
+        except Exception as e:
+            LoggingUtil.warning("RequirementsMapper", f"Augment LLM call failed for {bc_name}: {e}")
+            return initial_reqs
+
+        if not extra_reqs:
+            LoggingUtil.info("RequirementsMapper", f"🔎 No additional refs found for {bc_name} on augment pass.")
+            return initial_reqs
+
+        # 중복 제거 — 동일 line 범위 ref 는 drop
+        existing_keys = set()
+        for r in initial_reqs:
+            refs = r.get('refs') or []
+            for ref in refs:
+                if isinstance(ref, list) and len(ref) >= 2:
+                    try:
+                        sL = ref[0][0] if isinstance(ref[0], list) else None
+                        eL = ref[1][0] if isinstance(ref[1], list) else None
+                        if sL is not None and eL is not None:
+                            existing_keys.add((int(sL), int(eL)))
+                    except (TypeError, ValueError, IndexError):
+                        pass
+
+        dedup_extra = []
+        for r in extra_reqs:
+            refs = r.get('refs') or []
+            if not refs:
+                continue
+            ref = refs[0] if isinstance(refs[0], list) and len(refs) > 0 else refs
+            try:
+                sL = ref[0][0] if isinstance(ref[0], list) else None
+                eL = ref[1][0] if isinstance(ref[1], list) else None
+                if sL is None or eL is None:
+                    continue
+                k = (int(sL), int(eL))
+                if k in existing_keys:
+                    continue
+                existing_keys.add(k)
+                dedup_extra.append(r)
+            except (TypeError, ValueError, IndexError):
+                continue
+
+        LoggingUtil.info(
+            "RequirementsMapper",
+            f"🔎 Coverage augment for {bc_name}: +{len(dedup_extra)} refs "
+            f"(initial={current_refs_count}, after={current_refs_count + len(dedup_extra)}, target≥{target_min})"
+        )
+        return initial_reqs + dedup_extra
+
     def finalize(self, state: RequirementsMappingState) -> Dict:
         """최종 결과 정리"""
         return {
@@ -304,6 +429,16 @@ class RequirementsMappingWorkflow:
                 <rule id="2">**Indirect Relationships:** Look for indirect relationships through aggregates and events</rule>
                 <rule id="3">**Domain Alignment:** Include content if it's part of the same business domain</rule>
                 <rule id="4">**Inclusion Bias:** When in doubt, err on the side of inclusion if the relationship is plausible</rule>
+            </section>
+
+            <section id="exhaustive_coverage">
+                <title>Exhaustive Per-BC Coverage Requirements</title>
+                <rule id="1">**Walk the WHOLE requirements chunk top-to-bottom.** Do NOT stop after finding 1-2 matches. Every user story, every acceptance criterion, every task line that plausibly belongs to this Bounded Context must produce its own ref.</rule>
+                <rule id="2">**For each [PROJ-US-FR-...] / [PROJ-US-NFR-...] header inside the chunk, decide:** does the user story belong to this BC, partially or fully? If yes, emit refs for: (a) the narrative line (`> *As a ...`), (b) EACH Given/When/Then acceptance criterion (one ref per criterion — do NOT merge), and (c) EACH `- [PROJ-US-FR-...-TASK-...]` task entry that this BC implements.</rule>
+                <rule id="3">**Coverage target:** A typical BC owning 1 user story should produce 6-10 refs (1 narrative + 3 acceptance criteria + 2-3 tasks). A BC owning multiple user stories should produce that many per user story. Producing only 1-2 refs for a BC that owns multiple user stories is a SEVERE under-coverage and indicates you stopped early.</rule>
+                <rule id="4">**Non-functional requirements:** NFR user stories (performance, security, availability, usability, scalability) often apply CROSS-CUTTING to multiple BCs. If this BC handles user-facing operations, security-sensitive data, or batch jobs, include the relevant NFR clauses.</rule>
+                <rule id="5">**Cross-BC clauses:** When a single clause mentions multiple domains (e.g., "POS-Appia, e-Pro, ERP 등 내부 시스템과 API 기반 양방향 연계"), it may legitimately belong to several BCs. Include it if this BC is one of them — do NOT skip just because it overlaps.</rule>
+                <rule id="6">**Self-audit before returning:** Mentally scan the requirements chunk again. Did you skip any FR/NFR header that plausibly relates to this BC's aggregates or events? If yes, go back and add the missing refs. Returning a sparse mapping when the chunk actually contains more relevant content is a critical error.</rule>
             </section>
 
 {ui_specific_prompt}        </guidelines>

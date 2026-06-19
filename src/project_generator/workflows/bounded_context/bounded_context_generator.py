@@ -404,6 +404,56 @@ class BoundedContextWorkflow:
             
             cleaned_bcs.append(cleaned_bc)
         
+        # User story 누락 체크 — 원본 requirements 의 모든 FR/NFR 헤더가
+        # 적어도 하나의 BC 에 의해 커버되는지 확인. 안 들어간 것은 unmappedUserStories
+        # 에 기록 + 로그 경고 (BC 분할 누락 진단 보조).
+        unmapped_user_stories = []
+        coverage_logs = []
+        try:
+            req_dict = state.get("requirements", {}) or {}
+            user_story_text = req_dict.get("userStory", "") if isinstance(req_dict, dict) else ""
+            if user_story_text:
+                # 모든 ##### [PROJ-US-FR/NFR-XXX] 헤더 + 제목 추출
+                pattern = re.compile(r'#####\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]\s+(.+?)\s*$', re.MULTILINE)
+                all_user_stories = pattern.findall(user_story_text)
+
+                if all_user_stories:
+                    # 각 BC 의 description / events / role 텍스트에 user story ID / 제목이 언급되는지 휴리스틱 체크
+                    # (mapping 단계는 아직 안 돈 상태 — 여기선 BC content text 만으로 추정)
+                    bc_haystack = " ".join(
+                        " ".join([
+                            str(bc.get("name", "")),
+                            str(bc.get("alias", "")),
+                            str(bc.get("role", "")),
+                            " ".join([str(e) for e in (bc.get("events") or []) if e]),
+                            " ".join([str(a.get("name","")) + " " + str(a.get("alias","")) for a in (bc.get("aggregates") or []) if isinstance(a, dict)]),
+                        ])
+                        for bc in cleaned_bcs
+                    )
+
+                    for us_id, us_title in all_user_stories:
+                        title_keywords = [t for t in re.findall(r'[가-힣A-Za-z0-9]+', us_title) if len(t) >= 2]
+                        # ID 직접 언급 OR 제목 키워드 절반 이상이 어떤 BC 텍스트에 포함되면 mapped 로 간주
+                        if us_id in bc_haystack:
+                            continue
+                        if title_keywords:
+                            hits = sum(1 for kw in title_keywords if kw in bc_haystack)
+                            if hits >= max(2, len(title_keywords) // 2):
+                                continue
+                        unmapped_user_stories.append({"id": us_id, "title": us_title.strip()})
+
+                    if unmapped_user_stories:
+                        msg = (
+                            f"⚠️ {len(unmapped_user_stories)}/{len(all_user_stories)} user story 가 어느 BC 에도 매핑되지 않은 듯합니다 "
+                            f"(BC 분할 단계 누락 의심): " + ", ".join(u["id"] for u in unmapped_user_stories)
+                        )
+                        LoggingUtil.warning("BoundedContextWorkflow", msg)
+                        coverage_logs.append({"timestamp": datetime.now().isoformat(), "message": msg, "level": "warning"})
+                    else:
+                        LoggingUtil.info("BoundedContextWorkflow", f"✅ 모든 {len(all_user_stories)} user story 가 BC 에 매핑된 것으로 추정.")
+        except Exception as cov_err:
+            LoggingUtil.warning("BoundedContextWorkflow", f"Coverage check failed (non-fatal): {cov_err}")
+
         # Frontend의 _processAIOutput 로직 구현
         result = {
             "devisionAspect": state.get("devisionAspect", ""),
@@ -411,11 +461,12 @@ class BoundedContextWorkflow:
             "boundedContexts": cleaned_bcs,  # 정제된 BC 사용
             "relations": state.get("relations", []),
             "explanations": state.get("explanations", []),
+            "unmappedUserStories": unmapped_user_stories,
             "progress": 100,
             "isCompleted": True,
-            "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": "BC 워크플로우 완료"}]
+            "logs": state["logs"] + coverage_logs + [{"timestamp": datetime.now().isoformat(), "message": "BC 워크플로우 완료"}]
         }
-        
+
         return result
 
     def finalize_result(self, state: BoundedContextState) -> Dict:

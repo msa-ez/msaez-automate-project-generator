@@ -578,25 +578,63 @@ Please provide traceability mappings for all domain objects listed above."""
                 else:
                     domain_object['refs'] = converted_refs
 
-        # ── 최종 cleanup: zero-length + 단일 라인 구조 라인(markdown 헤더/표/구분선) ref drop ──
-        # aggregate / enumeration / valueObject 레벨의 refs 도 동일 노이즈 필터 적용.
-        # (preview_fields_generator._coerce_refs 와 동일한 정책)
+        # ── 최종 cleanup: zero-length drop + 구조 라인 ref 는 본문으로 relocate ──
+        # 이전엔 구조 라인을 drop 했으나 LLM 의 매핑 의도 (어느 user story 인지) 가
+        # 같이 손실되어 element 의 추적성이 빈 상태로 남는 부작용 발생.
+        # 이제 헤더 / 표 row 에서 [PROJ-US-FR-XXX] 를 추출해 같은 user story 본문
+        # narrative 라인 (`> *As a ...`) 으로 ref 를 옮긴다.
         raw_lines = raw_requirements.split('\n') if raw_requirements else []
 
-        def _is_structural_line_text(text):
-            if text is None:
-                return True
-            stripped = text.strip()
-            if not stripped:
-                return True
-            if stripped.startswith('#'):
-                return True
-            if stripped.startswith('|'):
-                return True
-            if all(c in '- \t' for c in stripped):
-                return True
-            return False
+        # user story 본문 위치 인덱스 사전 계산
+        us_index = {}
+        if raw_lines:
+            us_header_re = re.compile(r'^\s*#{4,6}\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]')
+            narrative_re = re.compile(r'^\s*>\s*\*?\s*As a')
+            for i, ln in enumerate(raw_lines):
+                m = us_header_re.match(ln or '')
+                if not m: continue
+                us_id = m.group(1)
+                body_end = len(raw_lines)
+                for j in range(i+1, len(raw_lines)):
+                    nxt = (raw_lines[j] or '').strip()
+                    if not nxt: continue
+                    if us_header_re.match(nxt) or nxt.startswith('---'):
+                        body_end = j
+                        break
+                narrative_line = None
+                first_content = None
+                for j in range(i+1, body_end):
+                    raw_t = raw_lines[j] or ''
+                    stripped = raw_t.strip()
+                    if not stripped: continue
+                    if stripped.startswith('#'): continue
+                    if stripped.startswith('|'): continue
+                    if all(c in '- \t' for c in stripped) and len(stripped) >= 3: continue
+                    if first_content is None:
+                        first_content = j + 1
+                    if narrative_re.match(raw_t):
+                        narrative_line = j + 1
+                        break
+                target = narrative_line or first_content
+                if target:
+                    us_index[us_id] = target
 
+        def _classify(text):
+            if text is None: return 'oob'
+            s = text.strip()
+            if not s: return 'empty'
+            if s.startswith('#'): return 'header'
+            if s.startswith('|'): return 'table'
+            if all(c in '- \t' for c in s) and len(s) >= 3: return 'sep'
+            return 'content'
+
+        def _line_full_range(line_num):
+            if not (1 <= line_num <= len(raw_lines)):
+                return None
+            content = raw_lines[line_num - 1] or ''
+            return [[line_num, 1], [line_num, max(1, len(content))]]
+
+        relocated_total = 0
         dropped_total = 0
         for object_type in ['aggregates', 'enumerations', 'valueObjects']:
             if object_type not in output:
@@ -605,35 +643,47 @@ Please provide traceability mappings for all domain objects listed above."""
                 refs = domain_object.get('refs') or []
                 if not refs:
                     continue
-                filtered = []
+                processed = []
                 for r in refs:
-                    if not isinstance(r, list) or len(r) != 2:
-                        continue
+                    if not isinstance(r, list) or len(r) != 2: continue
                     s, e = r
-                    if not (isinstance(s, list) and len(s) == 2 and isinstance(e, list) and len(e) == 2):
-                        continue
+                    if not (isinstance(s, list) and len(s) == 2 and isinstance(e, list) and len(e) == 2): continue
                     try:
                         sL = int(s[0]); sC = int(s[1])
                         eL = int(e[0]); eC = int(e[1])
                     except (TypeError, ValueError):
                         continue
-                    # zero-length drop
                     if sL == eL and sC == eC:
                         dropped_total += 1
                         continue
-                    # ref 의 START line 이 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
-                    # (single-line 뿐 아니라 multi-line 도 — 시각화 시 노이즈 라인에서 highlight 가 시작됨)
-                    if raw_lines:
-                        idx = sL - 1
-                        if 0 <= idx < len(raw_lines) and _is_structural_line_text(raw_lines[idx]):
-                            dropped_total += 1
-                            continue
-                    filtered.append([[sL, sC], [eL, eC]])
-                domain_object['refs'] = filtered
+                    src_text = raw_lines[sL-1] if (raw_lines and 0 <= sL-1 < len(raw_lines)) else None
+                    cls = _classify(src_text)
+                    if cls == 'content':
+                        processed.append([[sL, sC], [eL, eC]])
+                        continue
+                    if cls in ('empty', 'sep', 'oob'):
+                        dropped_total += 1
+                        continue
+                    # header / table — user story id 추출
+                    m = re.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src_text or '')
+                    if not m:
+                        dropped_total += 1
+                        continue
+                    target_line = us_index.get(m.group(1))
+                    if not target_line:
+                        dropped_total += 1
+                        continue
+                    relocated_ref = _line_full_range(target_line)
+                    if relocated_ref:
+                        processed.append(relocated_ref)
+                        relocated_total += 1
+                    else:
+                        dropped_total += 1
+                domain_object['refs'] = processed
 
-        if dropped_total > 0:
+        if relocated_total or dropped_total:
             LoggingUtil.info("TraceabilityGenerator",
-                f"최종 cleanup: zero-length / 구조라인 ref {dropped_total} 건 drop")
+                f"최종 refs 정리: relocated={relocated_total}, dropped={dropped_total}")
 
         return output
 

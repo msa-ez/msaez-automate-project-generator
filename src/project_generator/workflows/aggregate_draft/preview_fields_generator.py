@@ -764,7 +764,52 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 return raw_lines[idx]
             return None
 
+        # user story 본문 위치 인덱스 (구조 라인 ref relocate 용)
+        import re as _re_pf
+        us_index = {}
+        if raw_lines:
+            us_header_re = _re_pf.compile(r'^\s*#{4,6}\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]')
+            narrative_re = _re_pf.compile(r'^\s*>\s*\*?\s*As a')
+            for i, ln in enumerate(raw_lines):
+                m = us_header_re.match(ln or '')
+                if not m: continue
+                us_id = m.group(1)
+                body_end = len(raw_lines)
+                for j in range(i+1, len(raw_lines)):
+                    nxt = (raw_lines[j] or '').strip()
+                    if not nxt: continue
+                    if us_header_re.match(nxt) or nxt.startswith('---'):
+                        body_end = j
+                        break
+                narrative_line = None
+                first_content = None
+                for j in range(i+1, body_end):
+                    raw_t = raw_lines[j] or ''
+                    stripped = raw_t.strip()
+                    if not stripped: continue
+                    if stripped.startswith('#'): continue
+                    if stripped.startswith('|'): continue
+                    if all(c in '- \t' for c in stripped) and len(stripped) >= 3: continue
+                    if first_content is None: first_content = j + 1
+                    if narrative_re.match(raw_t):
+                        narrative_line = j + 1
+                        break
+                target = narrative_line or first_content
+                if target:
+                    us_index[us_id] = target
+
+        def _classify_pf(text):
+            if text is None: return 'oob'
+            s = text.strip()
+            if not s: return 'empty'
+            if s.startswith('#'): return 'header'
+            if s.startswith('|'): return 'table'
+            if all(c in '- \t' for c in s) and len(s) >= 3: return 'sep'
+            return 'content'
+
         def _coerce_refs(refs):
+            """string phrase → numeric col 강제 변환 + 구조 라인 ref 를 본문으로 relocate.
+            (이전엔 drop 했으나 LLM 의 user story 매핑 의도 보존 위해 relocate)"""
             if not isinstance(refs, list):
                 return []
             out = []
@@ -778,7 +823,6 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                     s_line = int(s[0]); e_line = int(e[0])
                 except (TypeError, ValueError):
                     continue
-                # col 이 숫자가 아니면 정수로 강제 (string phrase → 1 / line 끝)
                 s_col = s[1] if isinstance(s[1], (int, float)) else 1
                 e_col = e[1] if isinstance(e[1], (int, float)) else max(s_col, 1)
                 try:
@@ -788,12 +832,23 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 # zero-length drop
                 if s_line == e_line and s_col_i == e_col_i:
                     continue
-                # ref 의 START line 이 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
-                # (single-line 뿐 아니라 multi-line 도 — 시각화 시 노이즈 라인에서 highlight 가 시작됨)
-                line_text = _line_content(s_line)
-                if line_text is not None and _is_structural_line_text(line_text):
+                src_text = _line_content(s_line)
+                cls = _classify_pf(src_text)
+                if cls == 'content':
+                    out.append([[s_line, s_col_i], [e_line, e_col_i]])
                     continue
-                out.append([[s_line, s_col_i], [e_line, e_col_i]])
+                if cls in ('empty', 'sep', 'oob'):
+                    continue
+                # header / table — user story id 추출 후 본문으로
+                m = _re_pf.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src_text or '')
+                if not m:
+                    continue
+                target_line = us_index.get(m.group(1))
+                if not target_line:
+                    continue
+                target_content = raw_lines[target_line - 1] if (raw_lines and 0 <= target_line - 1 < len(raw_lines)) else ''
+                target_end_col = max(1, len(target_content))
+                out.append([[target_line, 1], [target_line, target_end_col]])
             return out
 
         coerced_total = 0

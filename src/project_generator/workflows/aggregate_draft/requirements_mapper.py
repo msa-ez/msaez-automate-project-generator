@@ -735,19 +735,85 @@ If after honest re-review there really is nothing more, return an empty array.
                         start_line_num, end_line_num = end_line_num, start_line_num
                         start_col, end_col = end_col, start_col
 
-                    # ── 노이즈 필터 ─────────────────────────────────────
-                    # 1) zero-length ref drop — 시각화 의미 없음
+                    # ── 노이즈 처리 ─────────────────────────────────────
+                    # drop 대신 relocate — LLM 의 매핑 의도 (어느 user story 인지) 는 보존하고
+                    # anchor 위치만 본문으로 옮긴다. 단 zero-length / 비-user-story 헤더 / 구분선 /
+                    # 빈줄은 의미 자체가 없어 drop.
+
+                    # 1) zero-length drop
                     if start_line_num == end_line_num and start_col == end_col:
-                        LoggingUtil.debug("RequirementsMapper", f"Drop zero-length ref: [[{start_line_num},{start_col}],[{end_line_num},{end_col}]]")
-                        continue
-                    # 2) START line 이 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
-                    #    → '##### [PROJ-US-FR-...]' 헤더, '|' 표 row, '---' 구분선
-                    #    single-line 뿐 아니라 multi-line ref 도 — 시각화 시 노이즈 라인에서 highlight 가 시작됨
-                    if _is_structural_line(start_line_text):
-                        LoggingUtil.debug("RequirementsMapper", f"Drop structural-line ref on line {start_line_num}: {start_line_text[:60]!r}")
                         continue
 
-                    converted_refs.append([[start_line_num, start_col], [end_line_num, end_col]])
+                    src_text = start_line_text or ''
+                    stripped = src_text.strip()
+                    is_header = stripped.startswith('#')
+                    is_table = stripped.startswith('|')
+                    is_sep = stripped and all(c in '- \t' for c in stripped) and len(stripped) >= 3
+                    is_empty = not stripped
+
+                    if not (is_header or is_table or is_sep or is_empty):
+                        # 본문 라인 — 그대로
+                        converted_refs.append([[start_line_num, start_col], [end_line_num, end_col]])
+                        continue
+
+                    # 구분선 / 공백 — drop
+                    if is_sep or is_empty:
+                        continue
+
+                    # 헤더 or 표 row — user story ID 추출 → 본문으로 relocate
+                    import re as _re_local
+                    us_match = _re_local.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src_text)
+                    if not us_match:
+                        # ID 없는 헤더 / TOC 표 — drop (e.g., '## 1. 사용자 스토리 목록')
+                        continue
+                    us_id = us_match.group(1)
+
+                    # 같은 user story 의 `##### [us_id]` 본문 위치 찾기
+                    target_line = None
+                    us_header_re = _re_local.compile(r'^\s*#{4,6}\s+\[' + _re_local.escape(us_id) + r'\]')
+                    for hdr_idx in range(len(lines)):
+                        hdr_text = lines[hdr_idx]
+                        m = _re_local.match(r'^<(\d+)>(.*)</\d+>$', hdr_text or '')
+                        if m:
+                            hdr_text_clean = m.group(2)
+                            hdr_line_num = int(m.group(1))
+                        else:
+                            hdr_text_clean = hdr_text or ''
+                            hdr_line_num = hdr_idx + 1
+                        if not us_header_re.match(hdr_text_clean):
+                            continue
+                        # 본문 첫 narrative (> *As a ...) 또는 첫 content 라인 찾기
+                        for body_idx in range(hdr_idx + 1, len(lines)):
+                            body_text = lines[body_idx]
+                            mb = _re_local.match(r'^<(\d+)>(.*)</\d+>$', body_text or '')
+                            if mb:
+                                body_text_clean = mb.group(2)
+                                body_line_num = int(mb.group(1))
+                            else:
+                                body_text_clean = body_text or ''
+                                body_line_num = body_idx + 1
+                            bs = body_text_clean.strip()
+                            if not bs: continue
+                            if bs.startswith('#'): break  # 다음 헤더 — 종료
+                            if bs.startswith('|') or (bs and all(c in '- \t' for c in bs)): continue
+                            target_line = body_line_num
+                            break
+                        if target_line:
+                            break
+
+                    if not target_line:
+                        continue
+
+                    # target_line 전체를 cover 하는 ref 로 교체
+                    # line content 길이로 end_col 설정
+                    target_content = ''
+                    for ln in lines:
+                        m = _re_local.match(r'^<(\d+)>(.*)</\d+>$', ln or '')
+                        if m and int(m.group(1)) == target_line:
+                            target_content = m.group(2)
+                            break
+                    target_end_col = max(1, len(target_content))
+                    converted_refs.append([[target_line, 1], [target_line, target_end_col]])
             
             if converted_refs:
                 req_copy['refs'] = converted_refs

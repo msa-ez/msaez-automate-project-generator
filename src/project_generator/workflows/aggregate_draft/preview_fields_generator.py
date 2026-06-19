@@ -788,11 +788,11 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 # zero-length drop
                 if s_line == e_line and s_col_i == e_col_i:
                     continue
-                # 단일 라인 ref 가 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
-                if s_line == e_line:
-                    line_text = _line_content(s_line)
-                    if line_text is not None and _is_structural_line_text(line_text):
-                        continue
+                # ref 의 START line 이 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
+                # (single-line 뿐 아니라 multi-line 도 — 시각화 시 노이즈 라인에서 highlight 가 시작됨)
+                line_text = _line_content(s_line)
+                if line_text is not None and _is_structural_line_text(line_text):
+                    continue
                 out.append([[s_line, s_col_i], [e_line, e_col_i]])
             return out
 

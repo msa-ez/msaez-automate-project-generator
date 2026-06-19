@@ -605,9 +605,10 @@ class RequirementsMappingWorkflow:
                     if start_line_num == end_line_num and start_col == end_col:
                         LoggingUtil.debug("RequirementsMapper", f"Drop zero-length ref: [[{start_line_num},{start_col}],[{end_line_num},{end_col}]]")
                         continue
-                    # 2) 단일 라인 ref 가 구조 라인(markdown 헤더/표/구분선/공백) 위에 있으면 drop
-                    #    → 헤더 prefix '##### [PROJ-US-FR-...]' 또는 1.1 절 표 row 가 ref 로 들어오는 케이스 제거
-                    if start_line_num == end_line_num and _is_structural_line(start_line_text):
+                    # 2) START line 이 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
+                    #    → '##### [PROJ-US-FR-...]' 헤더, '|' 표 row, '---' 구분선
+                    #    single-line 뿐 아니라 multi-line ref 도 — 시각화 시 노이즈 라인에서 highlight 가 시작됨
+                    if _is_structural_line(start_line_text):
                         LoggingUtil.debug("RequirementsMapper", f"Drop structural-line ref on line {start_line_num}: {start_line_text[:60]!r}")
                         continue
 

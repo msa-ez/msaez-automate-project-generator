@@ -313,13 +313,16 @@ Your goal is to establish precise traceability mappings between pre-generated do
             <section id="traceability_reference_format">
                 <title>Traceability Reference (refs) Format</title>
                 <rule id="1">**Mandatory Refs:** Each domain object MUST include a 'refs' array containing precise references to requirement text</rule>
-                <rule id="2">**Format Structure:** Use format [[[startLineNumber, "minimal_start_phrase"], [endLineNumber, "minimal_end_phrase"]]]</rule>
-                <rule id="3">**Minimal Phrases:** Use MINIMAL phrases (1-2 words) that uniquely identify the position in the requirement line</rule>
-                <rule id="4">**Shortest Identification:** Use the shortest possible phrase that can accurately locate the specific part of requirements</rule>
-                <rule id="5">**Valid Line Numbers:** Only reference line numbers that exist in the provided functional requirements section</rule>
-                <rule id="6">**Multiple References:** Include multiple ranges if a domain object is derived from multiple requirement sections</rule>
-                <rule id="7">**Precision:** Ensure referenced text actually supports and justifies the existence of the domain object</rule>
-                <rule id="8">**CRITICAL:** startLineNumber and endLineNumber MUST be NUMBERS (not strings). Phrases MUST be NON-EMPTY strings (at least 1 character). Empty strings "" in phrases are STRICTLY FORBIDDEN.</rule>
+                <rule id="2">**Format Structure:** Use format [[[startLineNumber, "start_anchor_phrase"], [endLineNumber, "end_anchor_phrase"]]]</rule>
+                <rule id="3">**Clause-Aligned Phrases:** Choose 2-4 token phrases that mark a meaningful clause boundary. The start_phrase should be the FIRST few tokens of the substantive content; the end_phrase should be the LAST few tokens. Do NOT pick single-character phrases or particles that land mid-word or mid-Korean-character-cluster.</rule>
+                <rule id="4">**Avoid Mid-Token Truncation:** Never end inside a word. The end_phrase MUST be a complete word/clause that naturally terminates the relevant content.</rule>
+                <rule id="5">**Skip Structural Lines:** Do NOT anchor on markdown headers (lines starting with `#`, `##`, `###`, `####`, `#####`, `######`), table rows (lines starting with `|`), or separator lines (`---`). Anchor only on prose lines such as user story narratives (`> *As a ...`), acceptance criteria (`- Given/When/Then ...`), and task entries (`- [PROJ-US-FR-...-TASK-...]`).</rule>
+                <rule id="6">**Per-Object Specificity:** Each domain object's refs should point to the SPECIFIC clause that defines THAT object. Do NOT reuse a single broad multi-line block ref as the mapping for several different objects — that destroys per-object traceability.</rule>
+                <rule id="7">**Zero-Length Forbidden:** start and end positions must NOT be identical. A ref of zero length is meaningless.</rule>
+                <rule id="8">**Valid Line Numbers:** Only reference line numbers that exist in the provided functional requirements section.</rule>
+                <rule id="9">**Multiple References:** Include multiple ranges if a domain object is derived from multiple requirement sections.</rule>
+                <rule id="10">**Precision:** Ensure referenced text actually supports and justifies the existence of the domain object.</rule>
+                <rule id="11">**CRITICAL:** startLineNumber and endLineNumber MUST be NUMBERS (not strings). Phrases MUST be NON-EMPTY strings (at least 1 character). Empty strings "" in phrases are STRICTLY FORBIDDEN.</rule>
             </section>
 
             <section id="accuracy_requirements">
@@ -349,8 +352,9 @@ Your goal is to establish precise traceability mappings between pre-generated do
             </example_traceability>
             <format_explanation>
 - The refs array contains ranges where each range is [[startLine, startPhrase], [endLine, endPhrase]]
-- Phrases should be MINIMAL words (1-2 words) that uniquely identify the position
-- Use the shortest possible phrase that can locate the specific part of requirements
+- Phrases should align with CLAUSE boundaries — first 2-3 tokens of substantive content for start, last 2-3 tokens for end
+- Avoid single-character phrases or particles that land mid-word
+- Skip markdown headers, table rows, and separator lines as anchors
 - Multiple ranges can be included if a domain object references multiple requirement sections
 - **CRITICAL:** In `[3, "Room"]`, the first element `3` is a NUMBER (line number), the second element `"Room"` is a STRING (phrase)
             </format_explanation>
@@ -386,7 +390,7 @@ Your goal is to establish precise traceability mappings between pre-generated do
             <requirement id="1">All domain object names must exactly match the names provided in the input</requirement>
             <requirement id="2">Every domain object from the input must be included in the output with refs</requirement>
             <requirement id="3">Line numbers in refs must be valid (exist in the requirements document)</requirement>
-            <requirement id="4">Phrases in refs must be minimal (1-2 words) and accurately identify the location</requirement>
+            <requirement id="4">Phrases in refs must align with clause boundaries (2-4 tokens), NOT single characters or particles that cut mid-word</requirement>
             <requirement id="5">**CRITICAL:** You MUST output ONLY valid JSON, no explanations, no markdown code fences. Do NOT include ```json or ``` markers. Do NOT include any text before or after the JSON object.</requirement>
             <requirement id="6">**CRITICAL:** Every domain object MUST have non-empty refs array. Empty refs arrays [] are NOT allowed. Empty strings "" in phrases are STRICTLY FORBIDDEN.</requirement>
         </field_requirements>
@@ -568,11 +572,68 @@ Please provide traceability mappings for all domain objects listed above."""
                 )
                 
                 if not converted_refs:
-                    LoggingUtil.warning("TraceabilityGenerator", 
+                    LoggingUtil.warning("TraceabilityGenerator",
                         f"{object_type} '{domain_object.get('name', 'unknown')}'의 traceMap 변환 실패: sanitized_refs={sanitized_refs}")
                     domain_object['refs'] = []
                 else:
                     domain_object['refs'] = converted_refs
+
+        # ── 최종 cleanup: zero-length + 단일 라인 구조 라인(markdown 헤더/표/구분선) ref drop ──
+        # aggregate / enumeration / valueObject 레벨의 refs 도 동일 노이즈 필터 적용.
+        # (preview_fields_generator._coerce_refs 와 동일한 정책)
+        raw_lines = raw_requirements.split('\n') if raw_requirements else []
+
+        def _is_structural_line_text(text):
+            if text is None:
+                return True
+            stripped = text.strip()
+            if not stripped:
+                return True
+            if stripped.startswith('#'):
+                return True
+            if stripped.startswith('|'):
+                return True
+            if all(c in '- \t' for c in stripped):
+                return True
+            return False
+
+        dropped_total = 0
+        for object_type in ['aggregates', 'enumerations', 'valueObjects']:
+            if object_type not in output:
+                continue
+            for domain_object in output[object_type]:
+                refs = domain_object.get('refs') or []
+                if not refs:
+                    continue
+                filtered = []
+                for r in refs:
+                    if not isinstance(r, list) or len(r) != 2:
+                        continue
+                    s, e = r
+                    if not (isinstance(s, list) and len(s) == 2 and isinstance(e, list) and len(e) == 2):
+                        continue
+                    try:
+                        sL = int(s[0]); sC = int(s[1])
+                        eL = int(e[0]); eC = int(e[1])
+                    except (TypeError, ValueError):
+                        continue
+                    # zero-length drop
+                    if sL == eL and sC == eC:
+                        dropped_total += 1
+                        continue
+                    # ref 의 START line 이 markdown 구조 라인(헤더/표/구분선/공백) 위에 있으면 drop
+                    # (single-line 뿐 아니라 multi-line 도 — 시각화 시 노이즈 라인에서 highlight 가 시작됨)
+                    if raw_lines:
+                        idx = sL - 1
+                        if 0 <= idx < len(raw_lines) and _is_structural_line_text(raw_lines[idx]):
+                            dropped_total += 1
+                            continue
+                    filtered.append([[sL, sC], [eL, eC]])
+                domain_object['refs'] = filtered
+
+        if dropped_total > 0:
+            LoggingUtil.info("TraceabilityGenerator",
+                f"최종 cleanup: zero-length / 구조라인 ref {dropped_total} 건 drop")
 
         return output
 

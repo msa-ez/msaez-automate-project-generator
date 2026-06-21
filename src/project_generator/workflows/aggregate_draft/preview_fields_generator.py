@@ -176,7 +176,11 @@ Valid line number range: {min_line} ~ {max_line}
 
             <section id="traceability">
                 <title>Source Traceability Requirements</title>
-                <rule id="1">**Mandatory Refs:** Each field MUST include a 'refs' array that traces back to specific parts of the functional requirements</rule>
+                <rule id="0">**WHEN refs is REQUIRED vs OPTIONAL:**
+                    - **REQUIRED (non-empty):** If this field was added because you saw a SPECIFIC mention of this attribute / concept in the requirements (e.g., requirement says "주문 일자, 주문자 이름" → fields `order_date`, `customer_name` MUST have refs to that line).
+                    - **OPTIONAL (empty `[]`):** If this field is an inferred standard DDD/audit field (`createdAt`, `updatedAt`, `version`, `id`) or added for completeness without specific mention, return `"refs": []` HONESTLY.
+                    - **NEVER fabricate refs.** Fabricated refs (pointing to unrelated text) are worse than empty refs. Empty = "I added this as a standard pattern"; fabricated = lie.</rule>
+                <rule id="1">**Mandatory When Traceable:** When the field's concept is explicitly mentioned in requirements, refs must be non-empty.</rule>
                 <rule id="2">**Refs Format:** Use format [[[startLineNumber, "start_anchor_phrase"], [endLineNumber, "end_anchor_phrase"]]]</rule>
                 <rule id="3">**Clause-Aligned Phrases:** Choose 2-4 token phrases that mark a meaningful clause boundary. The start_phrase should be the FIRST few tokens of the substantive content; the end_phrase should be the LAST few tokens. Do NOT pick single-character phrases or particles that land mid-word or mid-Korean-character-cluster.</rule>
                 <rule id="4">**Avoid Mid-Token Truncation:** Never end inside a word. The end_phrase MUST be a complete word/clause that naturally terminates the relevant content.</rule>
@@ -338,8 +342,8 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                                                 },
                                                 "refs": {
                                                     "type": "array",
-                                                    "description": "Traceability references",
-                                                    "minItems": 1,
+                                                    "description": "Traceability references (empty array allowed when field is inferred — DDD standard pattern, audit field, etc.)",
+                                                    # minItems 제거 — 가짜 refs 강제 방지
                                                     "items": {
                                                         "type": "array",
                                                         "items": {

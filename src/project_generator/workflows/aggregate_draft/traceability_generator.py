@@ -312,7 +312,11 @@ Your goal is to establish precise traceability mappings between pre-generated do
 
             <section id="traceability_reference_format">
                 <title>Traceability Reference (refs) Format</title>
-                <rule id="1">**Mandatory Refs:** Each domain object MUST include a 'refs' array containing precise references to requirement text</rule>
+                <rule id="0">**WHEN refs is REQUIRED vs OPTIONAL:**
+                    - **REQUIRED (non-empty refs):** If you created this domain object because you saw SPECIFIC TEXT in the requirements (a user story narrative, an acceptance criterion clause, a task entry, a named entity), you MUST provide refs to that text. Skipping refs in this case is a critical failure — the user loses traceability.
+                    - **OPTIONAL (empty array `[]` allowed):** If this domain object was added as an inferred completion — DDD standard pattern (e.g., audit fields, paired counterpart Commands/Events, ID value objects), cross-cutting NFR application (idempotency control, retry policy), or domain split byproduct — and there is NO specific text in the requirements that motivates it, return `"refs": []` HONESTLY.
+                    - **NEVER fabricate refs to satisfy the schema.** A wrong ref (pointing to unrelated text) is much worse than an empty one. Empty refs = honest signal of "inferred"; fabricated refs = lie.</rule>
+                <rule id="1">**Mandatory When Traceable:** When you can identify the source text that motivated this object, you MUST include it in refs.</rule>
                 <rule id="2">**Format Structure:** Use format [[[startLineNumber, "start_anchor_phrase"], [endLineNumber, "end_anchor_phrase"]]]</rule>
                 <rule id="3">**Clause-Aligned Phrases:** Choose 2-4 token phrases that mark a meaningful clause boundary. The start_phrase should be the FIRST few tokens of the substantive content; the end_phrase should be the LAST few tokens. Do NOT pick single-character phrases or particles that land mid-word or mid-Korean-character-cluster.</rule>
                 <rule id="4">**Avoid Mid-Token Truncation:** Never end inside a word. The end_phrase MUST be a complete word/clause that naturally terminates the relevant content.</rule>
@@ -430,7 +434,9 @@ Please provide traceability mappings for all domain objects listed above."""
                             "name": {"type": "string"},
                             "refs": {
                                 "type": "array",
-                                "minItems": 1,  # 최소 1개 refs 필수
+                                # minItems 제거 — 추론으로 추가된 element (DDD 표준 패턴 / 짝
+                                # counterpart / cross-cutting NFR) 는 source 라인이 없을 수
+                                # 있어 빈 배열 허용. 가짜 refs 를 강제로 만드는 게 더 나쁨.
                                 "items": {
                                     "type": "array",
                                     "minItems": 2,
@@ -461,7 +467,9 @@ Please provide traceability mappings for all domain objects listed above."""
                             "name": {"type": "string"},
                             "refs": {
                                 "type": "array",
-                                "minItems": 1,  # 최소 1개 refs 필수
+                                # minItems 제거 — 추론으로 추가된 element (DDD 표준 패턴 / 짝
+                                # counterpart / cross-cutting NFR) 는 source 라인이 없을 수
+                                # 있어 빈 배열 허용. 가짜 refs 를 강제로 만드는 게 더 나쁨.
                                 "items": {
                                     "type": "array",
                                     "minItems": 2,
@@ -492,7 +500,9 @@ Please provide traceability mappings for all domain objects listed above."""
                             "name": {"type": "string"},
                             "refs": {
                                 "type": "array",
-                                "minItems": 1,  # 최소 1개 refs 필수
+                                # minItems 제거 — 추론으로 추가된 element (DDD 표준 패턴 / 짝
+                                # counterpart / cross-cutting NFR) 는 source 라인이 없을 수
+                                # 있어 빈 배열 허용. 가짜 refs 를 강제로 만드는 게 더 나쁨.
                                 "items": {
                                     "type": "array",
                                     "minItems": 2,

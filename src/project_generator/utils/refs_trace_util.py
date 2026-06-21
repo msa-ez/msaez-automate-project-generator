@@ -159,8 +159,8 @@ class RefsTraceUtil:
                 continue
             if cls in ('empty', 'sep'):
                 continue
-            # header / table — FR-ID 추출
-            m = re.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src or '')
+            # header / table — FR-ID 추출 (브래킷 optional — TOC 표 row 는 `| ... PROJ-US-FR-011 | ...` 처럼 브래킷 없음)
+            m = re.search(r'\[?([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]?', src or '')
             if not m: continue
             target_line = us_index.get(m.group(1))
             if not target_line: continue

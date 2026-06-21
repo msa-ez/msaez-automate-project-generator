@@ -840,7 +840,8 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 if cls in ('empty', 'sep', 'oob'):
                     continue
                 # header / table — user story id 추출 후 본문으로
-                m = _re_pf.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src_text or '')
+                # 브래킷 optional — TOC 표 row 는 브래킷 없이 PROJ-US-FR-XXX 만 나옴
+                m = _re_pf.search(r'\[?([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]?', src_text or '')
                 if not m:
                     continue
                 target_line = us_index.get(m.group(1))

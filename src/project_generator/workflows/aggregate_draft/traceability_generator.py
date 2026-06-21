@@ -665,7 +665,8 @@ Please provide traceability mappings for all domain objects listed above."""
                         dropped_total += 1
                         continue
                     # header / table — user story id 추출
-                    m = re.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src_text or '')
+                    # 브래킷 optional — TOC 표 row 는 브래킷 없이 PROJ-US-FR-XXX 만 나옴
+                    m = re.search(r'\[?([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]?', src_text or '')
                     if not m:
                         dropped_total += 1
                         continue

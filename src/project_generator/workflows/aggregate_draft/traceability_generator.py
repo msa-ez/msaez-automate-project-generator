@@ -696,6 +696,45 @@ Please provide traceability mappings for all domain objects listed above."""
             LoggingUtil.info("TraceabilityGenerator",
                 f"최종 refs 정리: relocated={relocated_total}, dropped={dropped_total}")
 
+        # ── Keyword fallback: refs 가 빈 채로 남은 domain object 들 보강 ──
+        # LLM 이 명백히 source 에 등장하는 keyword 를 가진 element 의 refs 를 skip
+        # 한 케이스 대응. element.alias / element.name 을 source 에서 검색해서
+        # prose 본문에 매칭되면 그 라인으로 자동 ref 채움.
+        # (keyword 가 LLM 출력값이라 도메인 하드코딩 아님)
+        keyword_filled = 0
+        for object_type in ['aggregates', 'enumerations', 'valueObjects']:
+            if object_type not in output:
+                continue
+            for domain_object in output[object_type]:
+                if domain_object.get('refs'):
+                    continue  # 이미 refs 있음
+                # alias 우선, 없으면 name 으로 검색
+                keyword = domain_object.get('alias') or domain_object.get('name')
+                if not keyword or not isinstance(keyword, str) or len(keyword.strip()) < 2:
+                    continue
+                keyword = keyword.strip()
+                # source 에서 keyword 가 등장하는 prose 본문 라인 검색
+                # TOC 표 row 와 헤더 라인은 제외 (relocate 단계와 동일 정책)
+                matched_line = None
+                for i, ln in enumerate(raw_lines):
+                    if not ln or keyword not in ln:
+                        continue
+                    stripped = ln.strip()
+                    if not stripped: continue
+                    if stripped.startswith('#'): continue  # 헤더 skip
+                    if stripped.startswith('|'): continue  # TOC 표 skip
+                    if all(c in '- \t' for c in stripped) and len(stripped) >= 3: continue
+                    matched_line = i + 1  # 1-based
+                    break
+                if matched_line:
+                    content = raw_lines[matched_line - 1]
+                    domain_object['refs'] = [[[matched_line, 1], [matched_line, max(1, len(content))]]]
+                    keyword_filled += 1
+
+        if keyword_filled:
+            LoggingUtil.info("TraceabilityGenerator",
+                f"Keyword fallback: empty refs 였던 {keyword_filled} 건을 source 키워드 매칭으로 자동 채움")
+
         return output
 
     def _sanitize_and_convert_refs(self, refs: List, line_numbered_requirements: str) -> List:

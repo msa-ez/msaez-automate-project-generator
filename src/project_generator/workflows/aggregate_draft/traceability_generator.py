@@ -588,152 +588,22 @@ Please provide traceability mappings for all domain objects listed above."""
                 else:
                     domain_object['refs'] = converted_refs
 
-        # ── 최종 cleanup: zero-length drop + 구조 라인 ref 는 본문으로 relocate ──
-        # 이전엔 구조 라인을 drop 했으나 LLM 의 매핑 의도 (어느 user story 인지) 가
-        # 같이 손실되어 element 의 추적성이 빈 상태로 남는 부작용 발생.
-        # 이제 헤더 / 표 row 에서 [PROJ-US-FR-XXX] 를 추출해 같은 user story 본문
-        # narrative 라인 (`> *As a ...`) 으로 ref 를 옮긴다.
-        raw_lines = raw_requirements.split('\n') if raw_requirements else []
-
-        # user story 본문 위치 인덱스 사전 계산
-        us_index = {}
-        if raw_lines:
-            us_header_re = re.compile(r'^\s*#{4,6}\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]')
-            narrative_re = re.compile(r'^\s*>\s*\*?\s*As a')
-            for i, ln in enumerate(raw_lines):
-                m = us_header_re.match(ln or '')
-                if not m: continue
-                us_id = m.group(1)
-                body_end = len(raw_lines)
-                for j in range(i+1, len(raw_lines)):
-                    nxt = (raw_lines[j] or '').strip()
-                    if not nxt: continue
-                    if us_header_re.match(nxt) or nxt.startswith('---'):
-                        body_end = j
-                        break
-                narrative_line = None
-                first_content = None
-                for j in range(i+1, body_end):
-                    raw_t = raw_lines[j] or ''
-                    stripped = raw_t.strip()
-                    if not stripped: continue
-                    if stripped.startswith('#'): continue
-                    if stripped.startswith('|'): continue
-                    if all(c in '- \t' for c in stripped) and len(stripped) >= 3: continue
-                    if first_content is None:
-                        first_content = j + 1
-                    if narrative_re.match(raw_t):
-                        narrative_line = j + 1
-                        break
-                target = narrative_line or first_content
-                if target:
-                    us_index[us_id] = target
-
-        def _classify(text):
-            if text is None: return 'oob'
-            s = text.strip()
-            if not s: return 'empty'
-            if s.startswith('#'): return 'header'
-            if s.startswith('|'): return 'table'
-            if all(c in '- \t' for c in s) and len(s) >= 3: return 'sep'
-            return 'content'
-
-        def _line_full_range(line_num):
-            if not (1 <= line_num <= len(raw_lines)):
-                return None
-            content = raw_lines[line_num - 1] or ''
-            return [[line_num, 1], [line_num, max(1, len(content))]]
-
-        relocated_total = 0
-        dropped_total = 0
-        for object_type in ['aggregates', 'enumerations', 'valueObjects']:
-            if object_type not in output:
-                continue
-            for domain_object in output[object_type]:
-                refs = domain_object.get('refs') or []
-                if not refs:
-                    continue
-                processed = []
-                for r in refs:
-                    if not isinstance(r, list) or len(r) != 2: continue
-                    s, e = r
-                    if not (isinstance(s, list) and len(s) == 2 and isinstance(e, list) and len(e) == 2): continue
-                    try:
-                        sL = int(s[0]); sC = int(s[1])
-                        eL = int(e[0]); eC = int(e[1])
-                    except (TypeError, ValueError):
-                        continue
-                    if sL == eL and sC == eC:
-                        dropped_total += 1
-                        continue
-                    src_text = raw_lines[sL-1] if (raw_lines and 0 <= sL-1 < len(raw_lines)) else None
-                    cls = _classify(src_text)
-                    if cls == 'content':
-                        processed.append([[sL, sC], [eL, eC]])
-                        continue
-                    if cls in ('empty', 'sep', 'oob'):
-                        dropped_total += 1
-                        continue
-                    # header / table — user story id 추출
-                    # 브래킷 optional — TOC 표 row 는 브래킷 없이 PROJ-US-FR-XXX 만 나옴
-                    m = re.search(r'\[?([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]?', src_text or '')
-                    if not m:
-                        dropped_total += 1
-                        continue
-                    target_line = us_index.get(m.group(1))
-                    if not target_line:
-                        dropped_total += 1
-                        continue
-                    relocated_ref = _line_full_range(target_line)
-                    if relocated_ref:
-                        processed.append(relocated_ref)
-                        relocated_total += 1
-                    else:
-                        dropped_total += 1
-                domain_object['refs'] = processed
-
-        if relocated_total or dropped_total:
-            LoggingUtil.info("TraceabilityGenerator",
-                f"최종 refs 정리: relocated={relocated_total}, dropped={dropped_total}")
-
-        # ── Keyword fallback: refs 가 빈 채로 남은 domain object 들 보강 ──
-        # LLM 이 명백히 source 에 등장하는 keyword 를 가진 element 의 refs 를 skip
-        # 한 케이스 대응. element.alias / element.name 을 source 에서 검색해서
-        # prose 본문에 매칭되면 그 라인으로 자동 ref 채움.
-        # (keyword 가 LLM 출력값이라 도메인 하드코딩 아님)
-        keyword_filled = 0
-        for object_type in ['aggregates', 'enumerations', 'valueObjects']:
-            if object_type not in output:
-                continue
-            for domain_object in output[object_type]:
-                if domain_object.get('refs'):
-                    continue  # 이미 refs 있음
-                # alias 우선, 없으면 name 으로 검색
-                keyword = domain_object.get('alias') or domain_object.get('name')
-                if not keyword or not isinstance(keyword, str) or len(keyword.strip()) < 2:
-                    continue
-                keyword = keyword.strip()
-                # source 에서 keyword 가 등장하는 prose 본문 라인 검색
-                # TOC 표 row 와 헤더 라인은 제외 (relocate 단계와 동일 정책)
-                matched_line = None
-                for i, ln in enumerate(raw_lines):
-                    if not ln or keyword not in ln:
-                        continue
-                    stripped = ln.strip()
-                    if not stripped: continue
-                    if stripped.startswith('#'): continue  # 헤더 skip
-                    if stripped.startswith('|'): continue  # TOC 표 skip
-                    if all(c in '- \t' for c in stripped) and len(stripped) >= 3: continue
-                    matched_line = i + 1  # 1-based
-                    break
-                if matched_line:
-                    content = raw_lines[matched_line - 1]
-                    domain_object['refs'] = [[[matched_line, 1], [matched_line, max(1, len(content))]]]
-                    keyword_filled += 1
-
-        if keyword_filled:
-            LoggingUtil.info("TraceabilityGenerator",
-                f"Keyword fallback: empty refs 였던 {keyword_filled} 건을 source 키워드 매칭으로 자동 채움")
+        # NOTE: 이전 두 단계 (second relocate + keyword fallback) 는 좌표계 mismatch
+        # 버그로 제거됨.
+        #
+        # 배경: 이 시점의 refs 는 이미 traceMap 변환을 거쳐 ORIGINAL userStory 좌표에
+        # 있는 상태인데, 받아 둔 raw_requirements 는 BC description (BC chunk) 텍스트
+        # 라 raw_lines[s_line-1] 을 lookup 하면 전혀 다른 텍스트를 본 셈이 됨.
+        # 결과적으로 표 헤더 (L7) 같은 무의미한 위치로 ref 가 잘못 박히는 케이스 발생.
+        # (ES 4f477e94 / 234c5170 의 Report Aggregate 가 L7 = '| 업무명/세부업무명 ...'
+        #  표 헤더 row 를 가리키는 버그가 이 원인)
+        #
+        # 정상 relocate 는 이미 RefsTraceUtil.sanitize_and_convert_refs 의 5단계
+        # (traceMap 변환 전 — BC description 좌표 = LLM 이 본 좌표) 에서 수행됨.
+        # 그 결과를 traceMap 이 userStory 좌표로 변환하면 끝.
+        #
+        # 추가 cleanup / keyword fallback 을 traceMap 변환 후에 적용하려면 원본 userStory
+        # 텍스트가 필요한데, 이건 별도 작업 (frontend 가 userStory 를 추가 인자로 전달).
 
         return output
 

@@ -369,25 +369,33 @@ class RefsTraceUtil:
             e_line = clamp(e_line, min_line, max_line)
             
             # tryRelocate 로직 (프론트엔드와 동일)
+            # 가드: 짧은(< 4 자) phrase 는 흔한 토큰/조사일 수 있어 무관한 라인으로 잘못
+            # 옮겨질 위험이 크므로 relocate 안 함. ±5 window 매칭이 모호(2 곳 이상)하면
+            # 원래 라인 유지. (false relocation 방지)
             def try_relocate(line, phrase, is_end):
                 if not isinstance(phrase, str) or not phrase.strip():
                     return line
-                
+
                 def has(ln):
                     idx = ln - min_line
                     content = lines[idx] if 0 <= idx < len(lines) else ''
                     return phrase in content
-                
+
                 if has(line):
                     return line
-                
+
+                if len(phrase.strip()) < 4:
+                    return line
+
+                candidates = []
                 for d in range(1, 6):
                     if line - d >= min_line and has(line - d):
-                        return line - d
+                        candidates.append(line - d)
                     if line + d <= max_line and has(line + d):
-                        return line + d
-                
-                return line  # 못 찾으면 원래 라인 유지
+                        candidates.append(line + d)
+                if len(candidates) == 1:
+                    return candidates[0]
+                return line  # 없거나 모호하면 원래 라인 유지
             
             s_line = try_relocate(s_line, s_phrase, False)
             e_line = try_relocate(e_line, e_phrase, True)

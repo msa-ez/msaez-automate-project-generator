@@ -94,8 +94,6 @@ class TraceabilityGenerator:
                 odd_keys = sorted([k for k in processed_keys if k % 2 == 1])[:10]
                 even_keys = sorted([k for k in processed_keys if k % 2 == 0])[:10]
                 from project_generator.utils.logging_util import LoggingUtil
-                LoggingUtil.debug("TraceabilityGenerator", 
-                    f"_restore_trace_map: 처리된 키 샘플 - 짝수: {even_keys}, 홀수: {odd_keys}, 총 키 수: {len(processed_keys)}")
         
         return restored_trace_map
     

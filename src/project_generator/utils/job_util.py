@@ -204,7 +204,6 @@ class JobUtil:
                 worker_thread.start()
                 JobUtil._worker_threads[job_id] = worker_thread
                 
-                LoggingUtil.debug("job_util", f"[Job Queue] Job ID {job_id}에 대한 업데이트 큐 및 작업자 스레드 생성됨")
 
     @staticmethod
     def _update_worker(job_id: str):
@@ -214,7 +213,6 @@ class JobUtil:
         Args:
             job_id (str): 처리할 Job ID
         """
-        LoggingUtil.debug("job_util", f"[Job Worker] Job ID {job_id} 업데이트 작업자 스레드 시작")
         
         update_queue = JobUtil._update_queues[job_id]
         shutdown_event = JobUtil._shutdown_events[job_id]
@@ -228,7 +226,6 @@ class JobUtil:
                     update_request = update_queue.get(timeout=1.0)
                     
                     if update_request is None:  # 종료 신호
-                        LoggingUtil.debug("job_util", f"[Job Worker] Job ID {job_id} 종료 신호 수신")
                         break
                     
                     # Firebase 업데이트 실행
@@ -245,7 +242,6 @@ class JobUtil:
                             # 마지막으로 0.1초 더 기다려서 혹시 남은 요청이 있는지 확인
                             update_request = update_queue.get(timeout=0.1)
                             if update_request is None:
-                                LoggingUtil.debug("job_util", f"[Job Worker] Job ID {job_id} 최종 종료 신호 수신")
                                 break
                             
                             # 마지막 요청 처리
@@ -255,7 +251,6 @@ class JobUtil:
                             
                         except queue.Empty:
                             # 정말로 큐가 비어있음 - 종료
-                            LoggingUtil.debug("job_util", f"[Job Worker] Job ID {job_id} 큐 비어있음 확인, 종료")
                             break
                     # shutdown_event가 설정되지 않았으면 계속 대기
                     continue
@@ -267,7 +262,7 @@ class JobUtil:
             LoggingUtil.exception("job_util", f"[Job Worker Fatal] Job ID {job_id} 작업자 스레드 치명적 오류", e)
         
         finally:
-            LoggingUtil.debug("job_util", f"[Job Worker] Job ID {job_id} 업데이트 작업자 스레드 종료 (처리된 요청: {processed_count}개)")
+            pass
 
     @staticmethod
     def _execute_firebase_update(update_request: UpdateRequest):
@@ -367,7 +362,6 @@ class JobUtil:
         """
         with JobUtil._queue_lock:
             if job_id in JobUtil._shutdown_events:
-                LoggingUtil.debug("job_util", f"[Job Cleanup] Job ID {job_id} 리소스 정리 시작")
                 
                 # 1단계: 새로운 요청 추가 방지 (아직 종료 신호는 보내지 않음)
                 if job_id in JobUtil._update_queues:
@@ -378,13 +372,11 @@ class JobUtil:
                 
                 # 2단계: 종료 신호 설정
                 JobUtil._shutdown_events[job_id].set()
-                LoggingUtil.debug("job_util", f"[Job Cleanup] Job ID {job_id} 종료 신호 설정")
                 
                 # 3단계: 종료 신호(None)를 큐에 추가
                 if job_id in JobUtil._update_queues:
                     try:
                         JobUtil._update_queues[job_id].put(None, timeout=1.0)
-                        LoggingUtil.debug("job_util", f"[Job Cleanup] Job ID {job_id} 최종 종료 신호 전송")
                     except queue.Full:
                         LoggingUtil.warning("job_util", f"[Job Cleanup Warning] Job ID {job_id} 큐가 가득참 - 강제 종료")
                     except Exception as e:
@@ -393,26 +385,23 @@ class JobUtil:
                 # 4단계: 스레드 종료 대기
                 if job_id in JobUtil._worker_threads:
                     worker_thread = JobUtil._worker_threads[job_id]
-                    LoggingUtil.debug("job_util", f"[Job Cleanup] Job ID {job_id} 작업자 스레드 종료 대기...")
                     worker_thread.join(timeout=JobUtil.WORKER_TIMEOUT)
                     if worker_thread.is_alive():
                         LoggingUtil.warning("job_util", f"[Job Cleanup Warning] Job ID {job_id} 작업자 스레드가 {JobUtil.WORKER_TIMEOUT}초 내에 종료되지 않음")
                     else:
-                        LoggingUtil.debug("job_util", f"[Job Cleanup] Job ID {job_id} 작업자 스레드 정상 종료")
+                        pass
                 
                 # 5단계: 리소스 정리
                 JobUtil._update_queues.pop(job_id, None)
                 JobUtil._worker_threads.pop(job_id, None)
                 JobUtil._shutdown_events.pop(job_id, None)
                 
-                LoggingUtil.debug("job_util", f"[Job Cleanup] Job ID {job_id} 리소스 정리 완료")
 
     @staticmethod
     def cleanup_all_job_resources():
         """
         모든 Job의 리소스 정리
         """
-        LoggingUtil.debug("job_util", "[Job Cleanup] 모든 Job 리소스 정리 시작")
         
         with JobUtil._queue_lock:
             job_ids = list(JobUtil._shutdown_events.keys())
@@ -423,7 +412,6 @@ class JobUtil:
             except Exception as e:
                 LoggingUtil.exception("job_util", f"[Job Cleanup Error] Job ID {job_id} 정리 중 오류", e)
         
-        LoggingUtil.debug("job_util", "[Job Cleanup] 모든 Job 리소스 정리 완료")
 
 
     @staticmethod

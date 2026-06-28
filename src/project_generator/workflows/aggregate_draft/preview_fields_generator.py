@@ -504,8 +504,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 
                 # LLM 응답 원본 확인
                 if state.get('inference'):
-                    LoggingUtil.debug("PreviewFieldsGenerator", 
-                        f"Inference for '{aggregate_name}': {state['inference'][:500]}...")
+                    pass
                 
                 # 경고만 로깅하고 프로세스 계속 진행 (프론트엔드에서 처리)
                 state['logs'].append({

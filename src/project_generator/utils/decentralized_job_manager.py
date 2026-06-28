@@ -119,7 +119,6 @@ class DecentralizedJobManager:
         
         while not self.shutdown_requested:
             try:
-                LoggingUtil.debug("decentralized_job_manager", f"Job 모니터링 중... (현재 처리 중인 작업: {len(self.active_jobs)}/{max_concurrent})")
 
                 requested_jobs = await self._collect_requested_jobs(namespaces)
                 
@@ -269,7 +268,7 @@ class DecentralizedJobManager:
                     self.job_removal_requested.pop(job_id, None)
         
         if completed_job_ids:
-            LoggingUtil.debug("decentralized_job_manager", f"완료된 작업 정리: {completed_job_ids}")
+            pass
 
     def _check_pod_exists(self, pod_name: str) -> bool:
         """Kubernetes에서 Pod 존재 여부 확인"""
@@ -324,7 +323,6 @@ class DecentralizedJobManager:
             bool: 작업을 찾아서 처리했으면 True, 없으면 False
         """
         if not requested_jobs:
-            LoggingUtil.debug("decentralized_job_manager", f"대기 중인 Job 없음")
             return False
         
         # createdAt 기준으로 정렬 (FIFO)
@@ -338,7 +336,6 @@ class DecentralizedJobManager:
                 
             assigned_pod = job_data.get('assignedPodId')
             status = job_data.get('status')
-            LoggingUtil.debug("decentralized_job_manager", f"🔍 Job {job_id} 확인 - assignedPodId: {assigned_pod}, status: {status}")
             
             # assignedPodId가 있지만 Pod가 존재하지 않으면 orphaned job으로 간주하고 claim 시도
             if assigned_pod and assigned_pod != self.pod_id:
@@ -359,9 +356,9 @@ class DecentralizedJobManager:
                     LoggingUtil.info("decentralized_job_manager", f"🚀 Job {job_id} 처리 시작 완료 (현재 처리 중: {len(self.active_jobs)})")
                     return True
                 else:
-                    LoggingUtil.debug("decentralized_job_manager", f"❌ Job {job_id} claim 실패 (다른 Pod에 의해 선점됨)")
+                    pass
             else:
-                LoggingUtil.debug("decentralized_job_manager", f"⏭️  Job {job_id} 스킵 (assignedPodId: {assigned_pod}, status: {status})")
+                pass
         
         return False
 
@@ -391,15 +388,12 @@ class DecentralizedJobManager:
             transaction_result = await storage.transaction_async(job_path, update_function)
             
             if transaction_result is None:
-                LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id} 클레임 시도했으나, 해당 경로에 데이터가 없음.")
                 return False
 
             final_data = storage.restore_data_from_storage(transaction_result)
             if final_data.get('assignedPodId') == self.pod_id:
-                LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id} 클레임 성공")
                 return True
             else:
-                LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id}은 다른 Pod에 의해 선점되었거나 이미 처리 중입니다.")
                 return False
             
         except Exception as e:
@@ -413,16 +407,13 @@ class DecentralizedJobManager:
         self.job_cancellation_flags[job_id] = asyncio.Event()
         self.job_removal_requested[job_id] = False
         
-        LoggingUtil.debug("decentralized_job_manager", f"Job {job_id} 처리 시작")
         
         # 실제 작업 수행 - execute_job_logic은 태스크만 생성하고 즉시 리턴
         await self.execute_job_logic(job_id)
         
-        LoggingUtil.debug("decentralized_job_manager", f"Job {job_id} 백그라운드 태스크 생성 완료")
     
     async def execute_job_logic(self, job_id: str):
         """실제 Job 로직 실행 - 비동기로 백그라운드에서 실행"""
-        LoggingUtil.debug("decentralized_job_manager", f"Job {job_id} 로직 실행 중...")
         
         # 작업을 백그라운드 태스크로 실행하여 heartbeat가 블록되지 않도록 함
         task = asyncio.create_task(
@@ -434,7 +425,6 @@ class DecentralizedJobManager:
 
     def complete_job(self, job_id: str):
         """Job 완료 처리"""
-        LoggingUtil.debug("decentralized_job_manager", f"Job {job_id} 처리 완료")
         
         # active_jobs에서 제거 (태스크는 _handle_completed_tasks에서 정리)
         # 여기서는 즉시 제거하지 않고 태스크 완료 확인 후 제거
@@ -490,7 +480,6 @@ class DecentralizedJobManager:
                         self._get_requested_job_path(job_id),
                         {'waitingJobCount': waiting_count}
                     )
-                    LoggingUtil.debug("decentralized_job_manager", f"Job {job_id} waitingJobCount 업데이트: {waiting_count}")
                     
         except Exception as e:
             LoggingUtil.exception("decentralized_job_manager", f"waitingJobCount 업데이트 오류", e)
@@ -586,7 +575,6 @@ class DecentralizedJobManager:
             if not removal_requests:
                 return
             
-            LoggingUtil.debug("decentralized_job_manager", f"삭제 요청된 작업 {len(removal_requests)}개 발견")
             
             # 각 삭제 요청 처리
             for job_id, state_data in removal_requests.items():
@@ -613,7 +601,6 @@ class DecentralizedJobManager:
                     await self.handle_current_job_removal(job_id)
                 elif assigned_pod:
                     # 다른 Pod가 처리 중인 작업 - 해당 Pod가 처리해야 함
-                    LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id}은 Pod {assigned_pod}가 처리 중이므로 건너뜀")
                     return
                 else:
                     # 할당되지 않은 요청 작업 - 삭제 처리
@@ -636,7 +623,6 @@ class DecentralizedJobManager:
     async def handle_current_job_removal(self, job_id: str):
         """현재 진행 중인 작업 삭제 처리"""
         try:
-            LoggingUtil.debug("decentralized_job_manager", f"현재 진행 중인 작업 {job_id} 삭제 요청 처리 시작")
             
             # 작업 중단 플래그 설정
             self.job_removal_requested[job_id] = True
@@ -644,19 +630,17 @@ class DecentralizedJobManager:
             # 취소 플래그 설정 (process_job_async에서 확인할 수 있도록)
             if job_id in self.job_cancellation_flags:
                 self.job_cancellation_flags[job_id].set()
-                LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id} 취소 플래그 설정")
             
             # 현재 실행 중인 태스크가 있으면 취소
             if job_id in self.active_jobs:
                 task = self.active_jobs[job_id]
                 if not task.done():
-                    LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id} 태스크 취소 중...")
                     task.cancel()
                     
                     try:
                         await task
                     except asyncio.CancelledError:
-                        LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id} 태스크가 정상적으로 취소됨")
+                        pass
                     except Exception as e:
                         LoggingUtil.exception("decentralized_job_manager", f"작업 {job_id} 태스크 취소 중 오류", e)
                 
@@ -672,7 +656,6 @@ class DecentralizedJobManager:
             if job_id in self.job_removal_requested:
                 del self.job_removal_requested[job_id]
             
-            LoggingUtil.debug("decentralized_job_manager", f"작업 {job_id} 삭제 완료")
             
         except Exception as e:
             LoggingUtil.exception("decentralized_job_manager", f"현재 작업 {job_id} 삭제 처리 오류", e)
@@ -680,12 +663,10 @@ class DecentralizedJobManager:
     async def handle_unassigned_job_removal(self, job_id: str):
         """할당되지 않은 요청 작업 삭제 처리"""
         try:
-            LoggingUtil.debug("decentralized_job_manager", f"할당되지 않은 요청 작업 {job_id} 삭제 처리")
             
             # requestedJobs → jobs → jobStates 순차 삭제
             await self.delete_job_data_sequentially(job_id, include_requested=True)
             
-            LoggingUtil.debug("decentralized_job_manager", f"할당되지 않은 작업 {job_id} 삭제 완료")
             
         except Exception as e:
             LoggingUtil.exception("decentralized_job_manager", f"할당되지 않은 작업 {job_id} 삭제 처리 오류", e)
@@ -693,12 +674,10 @@ class DecentralizedJobManager:
     async def handle_completed_job_removal(self, job_id: str):
         """완료된 작업 삭제 처리"""
         try:
-            LoggingUtil.debug("decentralized_job_manager", f"완료된 작업 {job_id} 삭제 처리")
             
             # jobs → jobStates 순차 삭제
             await self.delete_job_data_sequentially(job_id, include_requested=False)
             
-            LoggingUtil.debug("decentralized_job_manager", f"완료된 작업 {job_id} 삭제 완료")
             
         except Exception as e:
             LoggingUtil.exception("decentralized_job_manager", f"완료된 작업 {job_id} 삭제 처리 오류", e)
@@ -706,14 +685,13 @@ class DecentralizedJobManager:
     async def handle_orphan_job_state_removal(self, job_id: str):
         """orphan jobState 삭제 처리"""
         try:
-            LoggingUtil.debug("decentralized_job_manager", f"orphan jobState {job_id} 삭제 처리")
             
             # jobStates만 삭제
             job_state_path = Config.get_job_state_path(job_id)
             success = await StorageSystemFactory.instance().delete_data_async(job_state_path)
             
             if success:
-                LoggingUtil.debug("decentralized_job_manager", f"orphan jobState {job_id} 삭제 완료")
+                pass
             else:
                 LoggingUtil.warning("decentralized_job_manager", f"orphan jobState {job_id} 삭제 실패")
                 
@@ -728,7 +706,7 @@ class DecentralizedJobManager:
                 requested_job_path = self._get_requested_job_path(job_id)
                 success = await StorageSystemFactory.instance().delete_data_async(requested_job_path)
                 if success:
-                    LoggingUtil.debug("decentralized_job_manager", f"requestedJobs에서 {job_id} 삭제 완료")
+                    pass
                 else:
                     LoggingUtil.warning("decentralized_job_manager", f"requestedJobs에서 {job_id} 삭제 실패")
                 
@@ -739,7 +717,7 @@ class DecentralizedJobManager:
             job_path = self._get_job_path(job_id)
             success = await StorageSystemFactory.instance().delete_data_async(job_path)
             if success:
-                LoggingUtil.debug("decentralized_job_manager", f"jobs에서 {job_id} 삭제 완료")
+                pass
             else:
                 LoggingUtil.warning("decentralized_job_manager", f"jobs에서 {job_id} 삭제 실패")
             
@@ -750,7 +728,7 @@ class DecentralizedJobManager:
             job_state_path = Config.get_job_state_path(job_id)
             success = await StorageSystemFactory.instance().delete_data_async(job_state_path)
             if success:
-                LoggingUtil.debug("decentralized_job_manager", f"jobStates에서 {job_id} 삭제 완료")
+                pass
             else:
                 LoggingUtil.warning("decentralized_job_manager", f"jobStates에서 {job_id} 삭제 실패")
                 

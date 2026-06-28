@@ -277,12 +277,11 @@ async def main():
                 # 나머지 실행 중인 태스크들 취소
                 for task in pending:
                     if not task.done():
-                        LoggingUtil.debug("main", f"태스크 취소 중: {task}")
                         task.cancel()
                         try:
                             await task
                         except asyncio.CancelledError:
-                            LoggingUtil.debug("main", "태스크가 정상적으로 취소되었습니다.")
+                            pass
                         except Exception as cleanup_error:
                             LoggingUtil.exception("main", "태스크 정리 중 예외 발생", cleanup_error)
                 
@@ -296,12 +295,11 @@ async def main():
             # 실행 중인 태스크들 정리
             for task in tasks:
                 if not task.done():
-                    LoggingUtil.debug("main", f"태스크 취소 중: {task}")
                     task.cancel()
                     try:
                         await task
                     except asyncio.CancelledError:
-                        LoggingUtil.debug("main", "태스크가 정상적으로 취소되었습니다.")
+                        pass
                     except Exception as cleanup_error:
                         LoggingUtil.exception("main", "태스크 정리 중 예외 발생", cleanup_error)
 
@@ -1435,7 +1433,7 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
                         LoggingUtil.info("main", f"🧹 세션({transformation_session_id})의 모든 BC 처리 완료, 표준 문서 정리 시작")
                         transformer.cleanup_user_standards()
                     else:
-                        LoggingUtil.debug("main", f"⏳ 세션({transformation_session_id})의 다른 BC가 아직 처리 중, cleanup 대기")
+                        pass
             except Exception as cleanup_error:
                 LoggingUtil.warning("main", f"사용자 표준 문서 정리 중 오류: {cleanup_error}")
         complete_job_func()
@@ -1838,7 +1836,6 @@ async def process_job_async(job_id: str, complete_job_func: callable):
     """비동기 Job 처리 함수 (Job ID prefix로 라우팅)"""
 
     try:
-        LoggingUtil.debug("main", f"Job 시작: {job_id}")
         if not JobUtil.is_valid_job_id(job_id):
             LoggingUtil.warning("main", f"Job 처리 오류: {job_id}, 유효하지 않음")
             return
@@ -1876,7 +1873,6 @@ async def process_job_async(job_id: str, complete_job_func: callable):
             LoggingUtil.warning("main", f"지원하지 않는 Job 타입: {job_id}")
             
     except asyncio.CancelledError:
-        LoggingUtil.debug("main", f"Job {job_id} 취소됨")
         return
         
     except Exception as e:

@@ -547,8 +547,8 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                     num_key = int(key)
                     if str(num_key) == str(key):
                         normalized_trace_map[num_key] = value
-                except (ValueError, TypeError):
-                    pass
+                except (ValueError, TypeError) as _exc:
+                    LoggingUtil.warning("preview_fields_generator", f"예외 발생(무시됨): {_exc}")
             return normalized_trace_map
         
         # 배열 형태인 경우 변환
@@ -566,8 +566,8 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                         num_key = int(key)
                         if str(num_key) == str(key):
                             restored_trace_map[num_key] = item['value']
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as _exc:
+                        LoggingUtil.warning("preview_fields_generator", f"예외 발생(무시됨): {_exc}")
                 else:
                     # Firebase가 비연속 숫자 키 객체를 배열로 변환한 경우
                     # 배열 인덱스가 원래 키와 일치함 (예: 인덱스 4 = 원래 키 "4")

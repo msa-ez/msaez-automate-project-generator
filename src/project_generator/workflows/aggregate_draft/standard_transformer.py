@@ -213,8 +213,8 @@ class AggregateDraftStandardTransformer:
                 # 생성된 디렉토리에 쓰기 권한 부여 시도 (실패해도 계속 진행)
                 try:
                     os.chmod(user_standards_dir, 0o777)
-                except (OSError, PermissionError):
-                    pass  # 권한 설정 실패해도 계속 진행 (initContainer에서 이미 설정됨)
+                except (OSError, PermissionError) as _exc:
+                    LoggingUtil.warning("standard_transformer", f"예외 발생(무시됨): {_exc}")
             finally:
                 os.umask(original_umask)
             
@@ -249,15 +249,15 @@ class AggregateDraftStandardTransformer:
                     # 디렉토리 쓰기 권한 확인 및 수정 시도
                     try:
                         os.chmod(user_standards_dir, 0o777)
-                    except (OSError, PermissionError):
-                        pass  # 권한 설정 실패해도 계속 진행
+                    except (OSError, PermissionError) as _exc:
+                        LoggingUtil.warning("standard_transformer", f"예외 발생(무시됨): {_exc}")
                     
                     blob.download_to_filename(str(local_file_path))
                     # 다운로드된 파일에 쓰기 권한 부여 (non-root 사용자를 위해)
                     try:
                         os.chmod(local_file_path, 0o666)
-                    except (OSError, PermissionError):
-                        pass  # 권한 설정 실패해도 계속 진행
+                    except (OSError, PermissionError) as _exc:
+                        LoggingUtil.warning("standard_transformer", f"예외 발생(무시됨): {_exc}")
                     downloaded_files.append(file_name)
                     LoggingUtil.info("StandardTransformer", f"✅ 다운로드 완료: {file_name}")
                 except (OSError, PermissionError) as e:
@@ -274,8 +274,8 @@ class AggregateDraftStandardTransformer:
                 # 빈 디렉토리 정리
                 try:
                     user_standards_dir.rmdir()
-                except (OSError, FileNotFoundError):
-                    pass
+                except (OSError, FileNotFoundError) as _exc:
+                    LoggingUtil.warning("standard_transformer", f"예외 발생(무시됨): {_exc}")
                 return None
                 
         except ImportError:
@@ -1298,8 +1298,8 @@ class AggregateDraftStandardTransformer:
                         if structured_data_str:
                             try:
                                 structured_data_json = json.loads(structured_data_str)
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                                pass
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                                LoggingUtil.warning("standard_transformer", f"예외 발생(무시됨): {_exc}")
                         
                         results_list.append({
                             "similarity_score": result_item.get("score", 0.0),

@@ -127,8 +127,8 @@ def _get_file_lock(path: str):
         if lock_file:
             try:
                 lock_file.close()
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                pass
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                print(f"예외 발생(무시됨): {_exc}")
 
 
 class RAGRetriever:
@@ -151,8 +151,8 @@ class RAGRetriever:
         # 이는 ChromaDB가 SQLite 파일을 생성할 때 readonly로 생성되는 문제를 방지
         try:
             os.umask(0)
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-            pass
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+            print(f"예외 발생(무시됨): {_exc}")
         
         # 초기화 전에 이전 인스턴스의 캐시를 클리어 (프로세스 레벨 싱글톤 캐시 문제 방지)
         if HAS_CHROMA:
@@ -179,12 +179,12 @@ class RAGRetriever:
                         instance = SharedSystemClient._instances[identifier]
                         if hasattr(instance, 'close'):
                             instance.close()
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                        pass
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                        print(f"예외 발생(무시됨): {_exc}")
                     del SharedSystemClient._instances[identifier]
         except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             # 캐시 클리어 실패해도 계속 진행 (초기화에서 처리)
-            pass
+            print(f"예외 발생(무시됨): {e}")
     
     def _fix_sqlite_permissions(self, path_obj: Path):
         """SQLite 파일 및 디렉토리 권한 수정 (readonly database 오류 방지)"""
@@ -219,11 +219,11 @@ class RAGRetriever:
                         else:
                             try:
                                 os.chmod(file_path, 0o666)
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                                pass
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                                print(f"예외 발생(무시됨): {_exc}")
                 except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     # 개별 파일/디렉토리 권한 수정 실패는 무시
-                    pass
+                    print(f"예외 발생(무시됨): {e}")
         except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             print(f"⚠️  Failed to fix SQLite permissions: {e}")
     
@@ -250,8 +250,8 @@ class RAGRetriever:
                         if hasattr(SharedSystemClient, '_instances') and identifier in SharedSystemClient._instances:
                             # 기존 인스턴스가 있으면 제거 (설정 충돌 방지)
                             del SharedSystemClient._instances[identifier]
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                        pass
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                        print(f"예외 발생(무시됨): {_exc}")
                     
                     # ChromaDB 1.4.0에서는 tenant를 명시적으로 지정해야 tenants 테이블 문제를 방지할 수 있음
                     import chromadb
@@ -415,8 +415,8 @@ class RAGRetriever:
                     identifier = str(self.vectorstore_path)
                     if hasattr(SharedSystemClient, '_instances') and identifier in SharedSystemClient._instances:
                         del SharedSystemClient._instances[identifier]
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                    pass
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                    print(f"예외 발생(무시됨): {_exc}")
                 
                 # ChromaDB 1.4.0에서는 tenant를 명시적으로 지정
                 import chromadb
@@ -532,11 +532,11 @@ class RAGRetriever:
                                 server = client._server
                                 if hasattr(server, 'close'):
                                     server.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                     self.vectorstore = None
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                    pass
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                    print(f"예외 발생(무시됨): {_exc}")
             
             # ChromaDB 싱글톤 인스턴스 완전 정리 (디렉토리 삭제 전에)
             try:
@@ -556,8 +556,8 @@ class RAGRetriever:
                                 instance = SharedSystemClient._instances[identifier]
                                 if hasattr(instance, 'close'):
                                     instance.close()
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                                pass
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                                print(f"예외 발생(무시됨): {_exc}")
                             del SharedSystemClient._instances[identifier]
                         
                         # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
@@ -589,9 +589,9 @@ class RAGRetriever:
                     # 파일 시스템 동기화 (디렉토리 삭제가 완전히 반영되도록)
                     try:
                         os.sync()
-                    except AttributeError:
+                    except AttributeError as _exc:
                         # os.sync()는 Linux에서만 사용 가능, macOS/Windows에서는 무시
-                        pass
+                        print(f"예외 발생(무시됨): {_exc}")
                     
                     # 디렉토리가 완전히 삭제되었는지 확인
                     max_retries = 10
@@ -644,8 +644,8 @@ class RAGRetriever:
                             os.chmod(os.path.join(root, d), 0o777)
                         for f in files:
                             os.chmod(os.path.join(root, f), 0o666)
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                        pass
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                        print(f"예외 발생(무시됨): {_exc}")
                 time.sleep(1.0)
             except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
                 print(f"⚠️  Failed to set permissions: {perm_error}")
@@ -672,8 +672,8 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                         del SharedSystemClient._instances[identifier]
                     
                     # 모든 인스턴스 클리어 및 명시적 종료 (더 안전한 방법)
@@ -681,8 +681,8 @@ class RAGRetriever:
                         try:
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                     # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
                     identifier = str(self.vectorstore_path)
                     if identifier in SharedSystemClient._instances:
@@ -690,8 +690,8 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                         del SharedSystemClient._instances[identifier]
                     print(f"✅ ChromaDB instance removed from cache for this path only")
                 
@@ -734,8 +734,8 @@ class RAGRetriever:
                                 try:
                                     if hasattr(instance, 'close'):
                                         instance.close()
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                                    pass
+                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                                    print(f"예외 발생(무시됨): {_exc}")
                             # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
                             identifier = str(self.vectorstore_path)
                             if identifier in SharedSystemClient._instances:
@@ -743,8 +743,8 @@ class RAGRetriever:
                                     instance = SharedSystemClient._instances[identifier]
                                     if hasattr(instance, 'close'):
                                         instance.close()
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                                    pass
+                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                                    print(f"예외 발생(무시됨): {_exc}")
                                 del SharedSystemClient._instances[identifier]
                         time.sleep(1.0)  # 짧은 대기 시간
                         
@@ -1070,8 +1070,8 @@ class RAGRetriever:
                             os.chmod(os.path.join(root, d), 0o777)
                         for f in files:
                             os.chmod(os.path.join(root, f), 0o666)
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                        pass
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                        print(f"예외 발생(무시됨): {_exc}")
                 time.sleep(1.0)
             except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
                 print(f"⚠️  Failed to set permissions: {perm_error}")
@@ -1091,8 +1091,8 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                         del SharedSystemClient._instances[identifier]
                     
                     # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
@@ -1102,8 +1102,8 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                         del SharedSystemClient._instances[identifier]
                     print(f"✅ ChromaDB instance removed from cache for this path only")
                 
@@ -1143,13 +1143,13 @@ class RAGRetriever:
                                         instance = SharedSystemClient._instances[identifier]
                                         if hasattr(instance, 'close'):
                                             instance.close()
-                                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                                        pass
+                                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                                        print(f"예외 발생(무시됨): {_exc}")
                                     del SharedSystemClient._instances[identifier]
                             # chromadb 모듈 레벨 캐시는 건드리지 않음
                             time.sleep(1.0)  # 짧은 대기 시간
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
-                            pass
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
+                            print(f"예외 발생(무시됨): {_exc}")
                         if retry == max_retries - 1:
                             raise
                     else:
@@ -1370,7 +1370,7 @@ class RAGRetriever:
                     except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                         # 필터 검색 실패 시 일단 추가 (안전한 방식)
                         # ChromaDB 버전에 따라 get 메서드가 다를 수 있음
-                        pass
+                        print(f"예외 발생(무시됨): {e}")
                     
                     documents_to_add.append(doc)
                 

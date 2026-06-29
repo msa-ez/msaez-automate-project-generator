@@ -91,8 +91,8 @@ def upload_standard_documents():
                 # 파일 권한 설정 (non-root 사용자를 위해)
                 try:
                     os.chmod(file_path, 0o666)
-                except (OSError, PermissionError):
-                    pass  # 권한 설정 실패해도 계속 진행
+                except (OSError, PermissionError) as _exc:
+                    logging.getLogger(__name__).warning(f"예외 발생(무시됨): {_exc}")
                 
                 uploaded_files.append({
                     'name': filename,

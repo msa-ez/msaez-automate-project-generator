@@ -280,8 +280,8 @@ async def main():
                         task.cancel()
                         try:
                             await task
-                        except asyncio.CancelledError:
-                            pass
+                        except asyncio.CancelledError as _exc:
+                            LoggingUtil.warning("main", f"예외 발생(무시됨): {_exc}")
                         except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cleanup_error:
                             LoggingUtil.exception("main", "태스크 정리 중 예외 발생", cleanup_error)
                 
@@ -298,8 +298,8 @@ async def main():
                     task.cancel()
                     try:
                         await task
-                    except asyncio.CancelledError:
-                        pass
+                    except asyncio.CancelledError as _exc:
+                        LoggingUtil.warning("main", f"예외 발생(무시됨): {_exc}")
                     except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cleanup_error:
                         LoggingUtil.exception("main", "태스크 정리 중 예외 발생", cleanup_error)
 
@@ -1469,8 +1469,8 @@ async def process_traceability_job(job_id: str, complete_job_func: callable):
                     try:
                         key = int(item['key'])
                         original_keys.append(key)
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as _exc:
+                        LoggingUtil.warning("main", f"예외 발생(무시됨): {_exc}")
             if original_keys:
                 original_odd = sorted([k for k in original_keys if k % 2 == 1])[:20]
                 original_even = sorted([k for k in original_keys if k % 2 == 0])[:20]
@@ -1510,8 +1510,8 @@ async def process_traceability_job(job_id: str, complete_job_func: callable):
                             numeric_keys.append(k)
                         elif isinstance(k, str) and k.isdigit():
                             numeric_keys.append(int(k))
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as _exc:
+                        LoggingUtil.warning("main", f"예외 발생(무시됨): {_exc}")
                 sample_keys = sorted(numeric_keys)[:20]
                 odd_keys = [k for k in sample_keys if k % 2 == 1]
                 even_keys = [k for k in sample_keys if k % 2 == 0]
@@ -1529,8 +1529,8 @@ async def process_traceability_job(job_id: str, complete_job_func: callable):
                         numeric_keys.append(k)
                     elif isinstance(k, str) and k.isdigit():
                         numeric_keys.append(int(k))
-                except (ValueError, TypeError):
-                    pass
+                except (ValueError, TypeError) as _exc:
+                    LoggingUtil.warning("main", f"예외 발생(무시됨): {_exc}")
             sample_keys = sorted(numeric_keys)[:20]
             odd_keys = [k for k in sample_keys if k % 2 == 1]
             even_keys = [k for k in sample_keys if k % 2 == 0]

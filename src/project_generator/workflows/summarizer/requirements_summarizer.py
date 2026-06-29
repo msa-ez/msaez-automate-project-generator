@@ -180,7 +180,7 @@ Guidelines:
                 "progress": 50,
                 "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": "요약 생성 완료"}]
             }
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.exception("SummarizerWorkflow", "요약 생성 중 오류 발생", e)
             # 호출자(main.process_summarizer_job)가 isFailed=True 를 쓸 수 있도록 그대로 전파.
             # 과거에는 빈 리스트를 반환하면서 isCompleted=True 로 마무리되어, 청크 데이터가 묵음 손실되고

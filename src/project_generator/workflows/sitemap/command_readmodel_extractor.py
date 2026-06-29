@@ -502,7 +502,7 @@ CRITICAL INSTRUCTIONS:
                     "logs": state["logs"] + [f"Chunk {current_chunk_index + 1}/{total_chunks} completed"]
                 })
                 LoggingUtil.info(state["job_id"], f"Firebase updated with chunk {current_chunk_index + 1}/{total_chunks} results")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 LoggingUtil.info(state["job_id"], f"Failed to update Firebase: {str(e)}")
             
             if next_chunk < total_chunks:
@@ -523,7 +523,7 @@ CRITICAL INSTRUCTIONS:
                     "progress": 80
                 }
             
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             error_msg = f"Failed to parse JSON response: {str(e)}"
             LoggingUtil.info(state["job_id"], error_msg)
             return {
@@ -533,7 +533,7 @@ CRITICAL INSTRUCTIONS:
                 "logs": [error_msg]
             }
             
-    except Exception as e:
+    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
         error_msg = f"Error in extract_commands_and_readmodels: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {
@@ -585,7 +585,7 @@ def finalize_result(state: CommandReadModelState) -> CommandReadModelState:
             "is_completed": True
         }
         
-    except Exception as e:
+    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
         error_msg = f"Error in finalize_result: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {

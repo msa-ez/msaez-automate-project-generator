@@ -83,7 +83,7 @@ class RequirementsValidator:
                 'progress': 100
             }
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("RequirementsValidator", f"Failed: {str(e)}")
             return {
                 'type': 'ANALYSIS_RESULT',

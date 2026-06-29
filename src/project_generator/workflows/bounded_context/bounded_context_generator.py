@@ -296,7 +296,7 @@ class BoundedContextWorkflow:
                 "progress": 50,
                 "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": "BC 생성 완료"}]
             }
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.exception("BoundedContextWorkflow", "BC 생성 중 오류 발생", e)
             return {
                 "thoughts": "",
@@ -451,7 +451,7 @@ class BoundedContextWorkflow:
                         coverage_logs.append({"timestamp": datetime.now().isoformat(), "message": msg, "level": "warning"})
                     else:
                         LoggingUtil.info("BoundedContextWorkflow", f"✅ 모든 {len(all_user_stories)} user story 가 BC 에 매핑된 것으로 추정.")
-        except Exception as cov_err:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cov_err:
             LoggingUtil.warning("BoundedContextWorkflow", f"Coverage check failed (non-fatal): {cov_err}")
 
         # Frontend의 _processAIOutput 로직 구현

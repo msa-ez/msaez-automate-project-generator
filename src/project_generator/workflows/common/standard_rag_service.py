@@ -164,7 +164,7 @@ class StandardRAGService:
                 
                 if not results_with_scores:
                     print(f"   ❌ 유사도 검색: 세션 필터링 후 결과 없음")
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             # 필터 실패 시 필터 없이 재시도
             # ChromaDB 동시성 문제("Failed to get segments")는 일시적이므로 조용히 처리
             error_msg = str(e)
@@ -184,7 +184,7 @@ class StandardRAGService:
                                 continue
                         filtered_results.append((doc, score))
                     results_with_scores = filtered_results
-            except Exception as e2:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e2:
                 error_msg2 = str(e2).lower()
                 if "Failed to get segments" not in error_msg2:
                     print(f"⚠️  Search failed: {e2}")
@@ -207,13 +207,13 @@ class StandardRAGService:
                                                 continue
                                         filtered_results.append((doc, score))
                                     results_with_scores = filtered_results
-                            except Exception as retry_error:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_error:
                                 print(f"⚠️  Search still failed after repair: {retry_error}")
                                 return []
                         else:
                             print(f"⚠️  Vector Store repair failed. Returning empty results.")
                             return []
-                    except Exception as repair_error:
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as repair_error:
                         print(f"⚠️  Failed to repair Vector Store: {repair_error}")
                         return []
                 else:

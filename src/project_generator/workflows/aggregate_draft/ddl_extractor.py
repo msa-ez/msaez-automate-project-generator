@@ -92,7 +92,7 @@ class DDLExtractor:
                 'progress': 100
             }
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("DDLExtractor", f"Failed: {str(e)}")
             return {
                 'ddlFieldRefs': [],

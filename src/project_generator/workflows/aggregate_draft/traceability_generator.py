@@ -161,7 +161,7 @@ class TraceabilityGenerator:
                 'progress': 100
             }
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("TraceabilityGenerator", f"Failed: {str(e)}")
             return {
                 'draftTraceMap': {'aggregates': [], 'enumerations': [], 'valueObjects': []},
@@ -566,7 +566,7 @@ Please provide traceability mappings for all domain objects listed above."""
                 # 2. validateRefs: 범위 검증 (예외 발생 시 빈 배열로 처리)
                 try:
                     self._validate_refs(domain_object['refs'], raw_requirements)
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("TraceabilityGenerator", 
                         f"{object_type} '{domain_object.get('name', 'unknown')}'의 refs 검증 실패: {str(e)}")
                     domain_object['refs'] = []

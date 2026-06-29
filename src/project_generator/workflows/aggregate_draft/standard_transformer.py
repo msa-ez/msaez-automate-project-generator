@@ -281,7 +281,7 @@ class AggregateDraftStandardTransformer:
         except ImportError:
             LoggingUtil.warning("StandardTransformer", "⚠️  firebase_admin.storage를 사용할 수 없습니다.")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("StandardTransformer", f"❌ Firebase Storage에서 문서 다운로드 실패: {e}")
             return None
     
@@ -315,7 +315,7 @@ class AggregateDraftStandardTransformer:
                     # 사용자별 문서 디렉토리 삭제
                     shutil.rmtree(self.user_standards_path, ignore_errors=True)
                     LoggingUtil.info("StandardTransformer", f"🧹 사용자 표준 문서 정리 완료: {self.user_standards_path}")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 LoggingUtil.warning("StandardTransformer", f"⚠️  사용자 표준 문서 정리 중 오류: {e}")
     
     def reprocess_all_bcs_with_complete_mapping(self, all_bc_results: List[Dict]) -> List[Dict]:
@@ -480,7 +480,7 @@ class AggregateDraftStandardTransformer:
                         'status': status,
                         'error': error_message if status == "error" else None
                     })
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", f"Firebase 업데이트 실패: {e}")
         
         try:
@@ -572,9 +572,9 @@ class AggregateDraftStandardTransformer:
                                     LoggingUtil.info("StandardTransformer", "✅ Vector Store 재초기화 완료")
                                 if vectorstore_clear_key:
                                     AggregateDraftStandardTransformer._vectorstore_cleared_sessions.add(vectorstore_clear_key)
-                        except Exception as cleanup_e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cleanup_e:
                             LoggingUtil.warning("StandardTransformer", f"⚠️  Vector Store 복구 실패: {cleanup_e}")
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", f"⚠️  Vector Store 클리어 실패 (무시하고 계속): {e}")
             
             transformation_logs = []  # 진행 단계 로그 수집
@@ -684,7 +684,7 @@ class AggregateDraftStandardTransformer:
                                                         property_type="aggregate",
                                                         status="processing",
                                                         error_message="RAG 검색 결과 없음 - Vector Store 인덱싱 실패 가능")
-                                except Exception as e:
+                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                                     LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                         
                         all_query_search_results.extend(query_search_results)
@@ -780,10 +780,10 @@ class AggregateDraftStandardTransformer:
                                                     agg_name=agg_name,
                                                     property_type="aggregate",
                                                     status="completed")
-                            except Exception as update_e:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                                 LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
                         
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                         LoggingUtil.error("StandardTransformer", 
                                         f"❌ Structure {struct_idx + 1}/{len(structure)} 변환 중 오류 발생: {agg_name}, {e}")
                         import traceback
@@ -798,7 +798,7 @@ class AggregateDraftStandardTransformer:
                                                     property_type="aggregate",
                                                     status="error",
                                                     error_message=str(e))
-                            except Exception as update_e:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                                 LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
                         
                         # 오류 발생 시 원본 사용
@@ -862,7 +862,7 @@ class AggregateDraftStandardTransformer:
                 # error가 None이면 필드 자체를 포함하지 않음
             }
         
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("StandardTransformer", f"❌ 표준 변환 실패: {e}")
             import traceback
             traceback.print_exc()
@@ -1231,7 +1231,7 @@ class AggregateDraftStandardTransformer:
                                     r["_matched_queries"].append(query)
                                 break
             
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 failed_queries += 1
                 continue
         
@@ -1298,7 +1298,7 @@ class AggregateDraftStandardTransformer:
                         if structured_data_str:
                             try:
                                 structured_data_json = json.loads(structured_data_str)
-                            except:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
                                 pass
                         
                         results_list.append({
@@ -1350,7 +1350,7 @@ class AggregateDraftStandardTransformer:
                                     r["_matched_queries"].append(query)
                                 break
             
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 failed_queries += 1
                 LoggingUtil.warning("StandardTransformer", 
                                   f"⚠️  검색 실패 (query: {sq.get('query')}): {e}")
@@ -1605,7 +1605,7 @@ class AggregateDraftStandardTransformer:
                     
                     processed_files += 1
                 
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", 
                                       f"⚠️  표준 파일 읽기 실패 ({file_path.name}): {e}")
                     continue
@@ -1631,7 +1631,7 @@ class AggregateDraftStandardTransformer:
                     
                     processed_files += 1
                 
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", 
                                       f"⚠️  PowerPoint 파일 읽기 실패 ({file_path.name}): {e}")
                     continue
@@ -1653,7 +1653,7 @@ class AggregateDraftStandardTransformer:
                                 else:
                                     LoggingUtil.warning("StandardTransformer", 
                                                       f"⚠️  Vector Store 재초기화 실패: _initialized={self.rag_retriever._initialized}")
-                            except Exception as reinit_e:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as reinit_e:
                                 LoggingUtil.warning("StandardTransformer", 
                                                   f"⚠️  Vector Store 재초기화 중 오류: {reinit_e}")
                     
@@ -1672,7 +1672,7 @@ class AggregateDraftStandardTransformer:
                             # 인덱싱이 성공했으면 Vector Store는 정상적으로 작동할 것으로 가정
                             LoggingUtil.info("StandardTransformer", 
                                            "ℹ️  Vector Store 검증 스킵: 인덱싱 성공 (검색 기능은 RAG 검색 시 확인됨)")
-                        except Exception as verify_e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as verify_e:
                             # 검증 실패해도 인덱싱은 성공했으므로 경고만 출력
                             LoggingUtil.warning("StandardTransformer", 
                                               f"⚠️  Vector Store 검증 중 오류: {verify_e}. 인덱싱은 성공했으므로 계속 진행")
@@ -1686,7 +1686,7 @@ class AggregateDraftStandardTransformer:
                             AggregateDraftStandardTransformer._user_vectorstores_indexed.discard(user_key)
                         elif transformation_session_id:
                             AggregateDraftStandardTransformer._base_standards_indexed.discard(transformation_session_id)
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", 
                                       f"⚠️  Vector Store 인덱싱 중 오류 발생: {e}")
                     # 인덱싱 상태 제거
@@ -1696,7 +1696,7 @@ class AggregateDraftStandardTransformer:
                     elif transformation_session_id:
                         AggregateDraftStandardTransformer._base_standards_indexed.discard(transformation_session_id)
         
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.warning("StandardTransformer", 
                               f"⚠️  전체 표준 매핑 구성 중 오류: {e}")
             import traceback
@@ -1808,7 +1808,7 @@ class AggregateDraftStandardTransformer:
                                   f"⚠️  표준 JSON 파싱 실패: {e}")
                 skipped_count += 1
                 continue
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 LoggingUtil.warning("StandardTransformer", 
                                   f"⚠️  표준 매핑 추출 중 오류: {e}")
                 skipped_count += 1
@@ -2675,7 +2675,7 @@ class AggregateDraftStandardTransformer:
                                             agg_name=agg_name,
                                             property_type="aggregate",
                                             status="processing")
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
             
             # 타임아웃을 늘리고 재시도 로직 추가
@@ -2687,7 +2687,7 @@ class AggregateDraftStandardTransformer:
                 try:
                     response = self.llm_structured.invoke(prompt)
                     break
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     retry_count += 1
                     error_msg = str(e)
                     
@@ -2708,7 +2708,7 @@ class AggregateDraftStandardTransformer:
                                                         property_type="aggregate",
                                                         status="processing",
                                                         error_message=f"LLM 호출 실패 (재시도 {retry_count}/{max_retries})")
-                        except Exception as update_e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                             LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
                     
                     LoggingUtil.warning("StandardTransformer", 
@@ -2724,7 +2724,7 @@ class AggregateDraftStandardTransformer:
                                                         property_type="aggregate",
                                                         status="error",
                                                         error_message="최대 재시도 횟수 초과")
-                            except Exception as update_e:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                                 LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
                         raise
                     
@@ -2860,7 +2860,7 @@ class AggregateDraftStandardTransformer:
             
             return merged_item
             
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             import time
             elapsed_time = time.time() - start_time if 'start_time' in locals() else 0
             LoggingUtil.error("StandardTransformer", 
@@ -3833,7 +3833,7 @@ class AggregateDraftStandardTransformer:
                                        f"   첫 번째 structure 항목 키: {list(structure[0].keys())}")
             
             return merged_options
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("StandardTransformer", f"❌ LLM 호출 실패: {e}")
             import traceback
             LoggingUtil.error("StandardTransformer", traceback.format_exc())
@@ -4667,7 +4667,7 @@ If no match or inappropriate match is found, keep the original unchanged.
             LoggingUtil.info("StandardTransformer", 
                           f"✅ 변환 결과 저장 완료: {result_dir}")
             
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("StandardTransformer", 
                             f"❌ 변환 결과 저장 실패: {e}")
             import traceback
@@ -5032,7 +5032,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                             chunk_info=chunk_info,
                                             status=status,
                                             error_message=error_message)
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
         
         base_result = self._transform_single_structure_with_llm(
@@ -5066,7 +5066,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                 property_type="enum",
                                                 chunk_info=f"청크 {chunk_idx + 1}/{len(enum_chunks)}",
                                                 status="processing")
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                         LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 LoggingUtil.info("StandardTransformer", 
@@ -5121,7 +5121,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                     chunk_info=chunk_info or f"청크 {chunk_idx + 1}/{len(enum_chunks)}",
                                                     status=status,
                                                     error_message=error_message)
-                        except Exception as e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                             LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 chunk_result = self._transform_enums_vos_only_with_llm(
@@ -5152,7 +5152,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                 property_type="vo",
                                                 chunk_info=f"청크 {chunk_idx + 1}/{len(vo_chunks)}",
                                                 status="processing")
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                         LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 LoggingUtil.info("StandardTransformer", 
@@ -5207,7 +5207,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                     chunk_info=chunk_info or f"청크 {chunk_idx + 1}/{len(vo_chunks)}",
                                                     status=status,
                                                     error_message=error_message)
-                        except Exception as e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                             LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 chunk_result = self._transform_enums_vos_only_with_llm(
@@ -5240,7 +5240,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                 property_type="field",
                                                 chunk_info=f"청크 {chunk_idx + 1}/{len(preview_attr_chunks)}",
                                                 status="processing")
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                         LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 LoggingUtil.info("StandardTransformer", 
@@ -5296,7 +5296,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                     chunk_info=chunk_info or f"청크 {chunk_idx + 1}/{len(preview_attr_chunks)}",
                                                     status=status,
                                                     error_message=error_message)
-                        except Exception as e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                             LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 chunk_result = self._transform_fields_only_with_llm(
@@ -5329,7 +5329,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                 property_type="field",
                                                 chunk_info=f"DDL 청크 {chunk_idx + 1}/{len(ddl_field_chunks)}",
                                                 status="processing")
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                         LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 LoggingUtil.info("StandardTransformer", 
@@ -5385,7 +5385,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                     chunk_info=chunk_info or f"DDL 청크 {chunk_idx + 1}/{len(ddl_field_chunks)}",
                                                     status=status,
                                                     error_message=error_message)
-                        except Exception as e:
+                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                             LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
                 
                 chunk_result = self._transform_fields_only_with_llm(
@@ -5597,7 +5597,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                         agg_name=agg_name_val,
                                         property_type="aggregate",
                                         status="completed")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {e}")
         
         return merged_result
@@ -5656,7 +5656,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                 try:
                     response = llm_structured.invoke(prompt)
                     break
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     retry_count += 1
                     error_msg = str(e)
                     
@@ -5670,7 +5670,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                                         property_type="field",
                                                         status="error",
                                                         error_message=f"최대 재시도 횟수 초과: {error_msg}")
-                            except Exception as update_e:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                                 LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
                         raise
                     
@@ -5695,7 +5695,7 @@ If no match or inappropriate match is found, keep the original unchanged.
             
             return result_structure
             
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("StandardTransformer", 
                             f"❌ [필드 전용] LLM 호출 실패: {e}")
             import traceback
@@ -5706,7 +5706,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                                             property_type="field",
                                             status="error",
                                             error_message=str(e))
-                except Exception as update_e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                     LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
             return structure_item
     
@@ -5902,7 +5902,7 @@ Return JSON with the EXACT same structure as input, ONLY changing `fieldName` va
                 try:
                     response = llm_structured.invoke(prompt)
                     break
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     retry_count += 1
                     error_msg = str(e)
                     
@@ -5917,7 +5917,7 @@ Return JSON with the EXACT same structure as input, ONLY changing `fieldName` va
                                                         property_type="enum" if item_type == "enumerations" else "vo",
                                                         status="error",
                                                         error_message=f"최대 재시도 횟수 초과: {error_msg}")
-                            except Exception as update_e:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                                 LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
                         raise
                     
@@ -5942,7 +5942,7 @@ Return JSON with the EXACT same structure as input, ONLY changing `fieldName` va
             
             return result_structure
             
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("StandardTransformer", 
                             f"❌ [Enum/VO 전용] LLM 호출 실패: {e}")
             import traceback
@@ -5954,7 +5954,7 @@ Return JSON with the EXACT same structure as input, ONLY changing `fieldName` va
                                             property_type="enum" if item_type == "enumerations" else "vo",
                                             status="error",
                                             error_message=str(e))
-                except Exception as update_e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as update_e:
                     LoggingUtil.warning("StandardTransformer", f"진행 상황 업데이트 실패: {update_e}")
             return structure_item
     

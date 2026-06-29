@@ -454,7 +454,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
             })
             state['progress'] = 90
             
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             LoggingUtil.error("PreviewFieldsGenerator", f"Error generating fields: {str(e)}")
             state['isFailed'] = True
             state['logs'].append({
@@ -666,7 +666,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 # 2. validateRefs: 범위 검증 (description 기준, 프론트엔드와 동일)
                 try:
                     temp_generator._validate_refs(field['refs'], description)
-                except Exception as e:
+                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                     if is_first:
                         LoggingUtil.warning("PreviewFieldsGenerator", 
                             f"❌ [validate 실패] field='{field.get('fieldName', 'unknown')}', "
@@ -707,7 +707,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                     converted_fields += 1
                     return True
                     
-            except Exception as e:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
                 if is_first:
                     LoggingUtil.error("PreviewFieldsGenerator", 
                         f"❌ [예외 발생] field='{field.get('fieldName', 'unknown')}', "

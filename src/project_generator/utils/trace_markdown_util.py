@@ -315,7 +315,7 @@ class TraceMarkdownUtil:
                                 add_lines('```json')
                                 add_lines(formatted_json, req_refs, False)
                                 add_lines('```')
-                            except:
+                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
                                 add_lines(text_content, req_refs, False)
                         else:
                             add_lines(text_content, req_refs, True)

@@ -55,7 +55,7 @@ class RefsTraceUtil:
                 line_numbered_requirements, 
                 is_use_xml_base
             )
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             import logging
             logging.warning(f'Failed to convert refs to indexes: {e}')
             converted_data = sanitized_data
@@ -455,7 +455,7 @@ class RefsTraceUtil:
             
             # 이중 ref 형식: [[start], [end]]
             return RefsTraceUtil._convert_dual_ref(ref_range, lines, start_line_offset, is_use_xml_base)
-        except Exception:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
             return ref_range
     
     @staticmethod
@@ -668,7 +668,7 @@ class RefsTraceUtil:
                     if (start_col_index < 0 or start_col_index > len(start_line_content) or 
                         end_col_index < 0 or end_col_index > len(end_line_content)):
                         invalid_refs.append(refs)
-            except Exception:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
                 invalid_refs.append(refs)
         
         RefsTraceUtil._search_refs_array_recursively(data, validate_refs_array)

@@ -7,7 +7,7 @@ class CaseConvertUtil:
     def camel_case(text: str) -> str:
         try:
             return camel_case(text)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             words = text.replace('-', ' ').replace('_', ' ').split()
             if not words:
                 return text
@@ -17,7 +17,7 @@ class CaseConvertUtil:
     def pascal_case(text: str) -> str:
         try:
             return pascal_case(text)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             words = text.replace('-', ' ').replace('_', ' ').split()
             if not words:
                 return text
@@ -27,14 +27,14 @@ class CaseConvertUtil:
     def snake_case(text: str) -> str:
         try:
             return snake_case(text)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             return text.replace('-', '_')
 
     @staticmethod
     def plural(text: str) -> str:
         try:
             return pluralizer.plural(camel_case(text))
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
             try:
                 camel = CaseConvertUtil.camel_case(text)
                 if camel.endswith('y'):
@@ -43,5 +43,5 @@ class CaseConvertUtil:
                     return camel + 'es'
                 else:
                     return camel + 's'
-            except:
+            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
                 return text

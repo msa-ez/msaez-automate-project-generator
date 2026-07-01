@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 app = Flask(__name__)
 
@@ -99,7 +100,7 @@ def upload_standard_documents():
                     'size': file_path.stat().st_size,
                     'path': str(file_path)
                 })
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 errors.append(f'{filename}: 저장 실패 - {str(e)}')
         
         if uploaded_files:
@@ -116,7 +117,7 @@ def upload_standard_documents():
                 'errors': errors
             }), 400
             
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         logging.error(f'Standard documents upload error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
@@ -185,7 +186,7 @@ def list_standard_documents():
         logging.info(f'[Standard Documents List] Total files found: {len(files)}')
         return jsonify({'files': files}), 200
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         logging.error(f'Standard documents list error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
@@ -221,7 +222,7 @@ def delete_standard_document():
             'message': f'{filename} 파일이 삭제되었습니다.'
         }), 200
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         logging.error(f'Standard documents delete error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 

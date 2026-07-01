@@ -1,6 +1,7 @@
 import json
 
 from .logging_util import LoggingUtil
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 class JsonUtil:
     @staticmethod
@@ -18,7 +19,7 @@ class JsonUtil:
                 else:
                     return item if isinstance(item, (str, int, float, bool, type(None))) else str(item)
                 
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 LoggingUtil.exception("json_util", f"Error converting to json", e)
                 return item
         
@@ -43,7 +44,7 @@ class JsonUtil:
     def convert_to_dict(json_str: str) -> dict:
         try :     
             return json.loads(json_str)
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.exception("json_util", f"Error converting to dict", e)
             return {}
 

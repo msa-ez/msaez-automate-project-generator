@@ -16,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class UserStoryState(TypedDict, total=False):
@@ -339,7 +340,7 @@ Please generate the json in valid json format and if there's a property its valu
                 }]
             }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             # ⚠️ 과거에는 빈 결과를 반환하면서 그래프가 계속 진행돼 finalize 가
             # isCompleted=True 로 마무리했음. 프론트는 "성공인데 결과 비어있음"을 받고
             # 청크 데이터를 통째로 잃었음. 호출자가 isFailed 로 기록할 수 있도록 전파.

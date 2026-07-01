@@ -6,6 +6,7 @@ import re
 from project_generator.utils.logging_util import LoggingUtil
 from project_generator.utils.refs_trace_util import RefsTraceUtil
 from project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class DDLExtractorState(TypedDict):
@@ -92,7 +93,7 @@ class DDLExtractor:
                 'progress': 100
             }
 
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.error("DDLExtractor", f"Failed: {str(e)}")
             return {
                 'ddlFieldRefs': [],

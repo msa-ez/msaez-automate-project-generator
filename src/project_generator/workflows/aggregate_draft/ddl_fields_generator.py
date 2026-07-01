@@ -11,6 +11,7 @@ import copy
 from ...config import Config
 from ...utils.logging_util import LoggingUtil
 from ...utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 # ===== State Definition =====
@@ -137,7 +138,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             error_msg = f"Field assignment failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -264,7 +265,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             error_msg = f"Validation failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -287,7 +288,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             error_msg = f"Output finalization failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -467,7 +468,7 @@ Now please assign the DDL fields to the appropriate aggregates based on the prov
             final_state = self.workflow.invoke(initial_state)
             
             if final_state.get("error"):
-                raise Exception(final_state["error"])
+                raise RuntimeError(final_state["error"])
             
             LoggingUtil.info("DDLFieldsGenerator", "DDL fields assignment completed")
             
@@ -477,10 +478,10 @@ Now please assign the DDL fields to the appropriate aggregates based on the prov
                 "timestamp": final_state.get("timestamp", "")
             }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             error_msg = f"DDL fields assignment failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
-            raise Exception(error_msg)
+            raise RuntimeError(error_msg)
 
 
 # ===== Convenience function for testing =====

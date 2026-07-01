@@ -8,6 +8,7 @@ from functools import partial
 
 from ..utils.logging_util import LoggingUtil
 from .storage_system import StorageSystem
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 class FirebaseSystem(StorageSystem):
     _instance: Optional['FirebaseSystem'] = None
@@ -111,7 +112,7 @@ class FirebaseSystem(StorageSystem):
         except firebase_admin.exceptions.NotFoundError as e:
             # 404는 정상 케이스 (경로가 아직 없음) - 에러 로그 없이 None 반환
             return None
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.exception("firebase_system", f"{operation_name} 실패", e)
             return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
 
@@ -134,7 +135,7 @@ class FirebaseSystem(StorageSystem):
                 partial(sync_func, *args, **kwargs)
             )
             return result
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.exception("firebase_system", f"비동기 {operation_name} 실패", e)
             return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
 
@@ -155,7 +156,7 @@ class FirebaseSystem(StorageSystem):
                     loop.run_until_complete(async_func(*args, **kwargs))
             except RuntimeError:
                 asyncio.run(async_func(*args, **kwargs))
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.exception("firebase_system", f"Fire and Forget 실행 실패", e)
 
     def _get_firebase_reference(self, path: str = None):
@@ -559,7 +560,7 @@ class FirebaseSystem(StorageSystem):
                         callback(restored_data)
                     else:
                         callback(data)
-                except Exception as e:
+                except CATCHABLE_EXCEPTIONS as e:
                     LoggingUtil.exception("firebase_system", f"콜백 함수 실행 실패", e)
             
             # 리스너 등록

@@ -38,6 +38,7 @@ from project_generator.workflows.aggregate_draft.ddl_extractor import DDLExtract
 from project_generator.workflows.aggregate_draft.standard_transformer import AggregateDraftStandardTransformer
 from project_generator.workflows.requirements_validation.requirements_validator import RequirementsValidator
 from project_generator.workflows.requirements_validation.event_flow_stitcher import EventFlowStitcher
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 # 전역 job_manager 인스턴스
 _current_job_manager: DecentralizedJobManager = None
@@ -64,7 +65,7 @@ def _estimate_json_size_bytes(data) -> int:
     """로그/튜닝 목적의 대략적인 JSON payload 크기 추정."""
     try:
         return len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
-    except Exception:
+    except CATCHABLE_EXCEPTIONS:
         return 0
 
 
@@ -192,7 +193,7 @@ async def _cleanup_requested_job(req_path: str, label: str, *, retries: int = 3)
                 "main",
                 f"{label}: requested job delete returned False (attempt {attempt}/{retries}) path={req_path}"
             )
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.warning(
                 "main",
                 f"{label}: requested job delete failed (attempt {attempt}/{retries}) path={req_path} err={e}"
@@ -213,7 +214,7 @@ async def _cleanup_requested_job(req_path: str, label: str, *, retries: int = 3)
         )
         LoggingUtil.warning("main", f"{label}: fallback applied for requested job path={req_path}")
         return False
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.warning("main", f"{label}: fallback update failed path={req_path} err={e}")
         return False
 
@@ -282,13 +283,13 @@ async def main():
                             await task
                         except asyncio.CancelledError:
                             pass
-                        except Exception as cleanup_error:
+                        except CATCHABLE_EXCEPTIONS as cleanup_error:
                             LoggingUtil.exception("main", "태스크 정리 중 예외 발생", cleanup_error)
                 
                 LoggingUtil.info("main", "메인 함수 정상 종료")
                 break  # while 루프 종료
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             restart_count += 1
             LoggingUtil.exception("main", f"메인 함수에서 예외 발생 (재시작 횟수: {restart_count})", e)
             
@@ -300,7 +301,7 @@ async def main():
                         await task
                     except asyncio.CancelledError:
                         pass
-                    except Exception as cleanup_error:
+                    except CATCHABLE_EXCEPTIONS as cleanup_error:
                         LoggingUtil.exception("main", "태스크 정리 중 예외 발생", cleanup_error)
 
             continue
@@ -357,7 +358,7 @@ async def process_summarizer_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_occurred = e
         LoggingUtil.exception("main", f"Summarizer Job 처리 오류: {job_id}", e)
 
@@ -383,7 +384,7 @@ async def process_summarizer_job(job_id: str, complete_job_func: callable):
                 output_path,
                 error_output
             )
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -462,7 +463,7 @@ async def process_user_story_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"처리 오류: {job_id}", e)
         
         # 실패 기록
@@ -476,7 +477,7 @@ async def process_user_story_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/user_story_generator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -519,7 +520,7 @@ async def process_bounded_context_job(job_id: str, complete_job_func: callable):
 
         try:
             final_length = len(json.dumps(result, ensure_ascii=False))
-        except Exception:
+        except CATCHABLE_EXCEPTIONS:
             final_length = 0
 
         intermediate_lengths = _compute_intermediate_lengths(final_length, steps=3)
@@ -559,7 +560,7 @@ async def process_bounded_context_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 BC 생성 완료: {job_id}, BCs: {len(result.get('boundedContexts', []))}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_occurred = e
         LoggingUtil.exception("main", f"BC 생성 오류: {job_id}", e)
         
@@ -577,7 +578,7 @@ async def process_bounded_context_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/bounded_context/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -651,7 +652,7 @@ async def process_command_readmodel_job(job_id: str, complete_job_func: callable
         LoggingUtil.info("main", f"🎉 Command/ReadModel 추출 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_occurred = e
         LoggingUtil.exception("main", f"Command/ReadModel 추출 오류: {job_id}", e)
         
@@ -666,7 +667,7 @@ async def process_command_readmodel_job(job_id: str, complete_job_func: callable
             }
             output_path = f'jobs/command_readmodel_extractor/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -720,7 +721,7 @@ async def process_sitemap_job(job_id: str, complete_job_func: callable):
 
         try:
             final_length = len(json.dumps(result.get('site_map', {}), ensure_ascii=False))
-        except Exception:
+        except CATCHABLE_EXCEPTIONS:
             final_length = 0
 
         intermediate_lengths = _compute_intermediate_lengths(final_length, steps=3)
@@ -765,7 +766,7 @@ async def process_sitemap_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 SiteMap 생성 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_occurred = e
         LoggingUtil.exception("main", f"SiteMap 생성 오류: {job_id}", e)
         
@@ -780,7 +781,7 @@ async def process_sitemap_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/sitemap_generator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -851,7 +852,7 @@ async def process_requirements_mapping_job(job_id: str, complete_job_func: calla
         LoggingUtil.info("main", f"🎉 Requirements Mapping 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"Requirements Mapping 오류: {job_id}", e)
         
         # 실패 기록
@@ -865,7 +866,7 @@ async def process_requirements_mapping_job(job_id: str, complete_job_func: calla
             }
             output_path = f'jobs/requirements_mapper/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -956,7 +957,7 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
                         bounded_context['requirements']['description'] = bc_description_with_mapping['markdown']
                 
                 LoggingUtil.info("main", f"✅ traceMap 생성 완료: {len(bc_description_with_mapping['traceMap'])} lines")
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 LoggingUtil.warning("main", f"⚠️ traceMap 생성 실패 (계속 진행): {e}")
                 # traceMap 생성 실패해도 계속 진행
                 if not isinstance(bounded_context.get('requirements'), dict):
@@ -1076,7 +1077,7 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 Aggregate Draft 생성 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"Aggregate Draft 생성 오류: {job_id}", e)
         
         try:
@@ -1089,7 +1090,7 @@ async def process_aggregate_draft_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/aggregate_draft_generator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -1167,7 +1168,7 @@ async def process_preview_fields_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 Preview Fields 생성 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"Preview Fields 생성 오류: {job_id}", e)
         
         try:
@@ -1179,7 +1180,7 @@ async def process_preview_fields_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/preview_fields_generator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -1245,7 +1246,7 @@ async def process_ddl_fields_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 DDL Fields 할당 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"DDL Fields 할당 오류: {job_id}", e)
         
         try:
@@ -1257,7 +1258,7 @@ async def process_ddl_fields_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/ddl_fields_generator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     
     finally:
@@ -1302,7 +1303,7 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
             try:
                 sanitized_data = storage.sanitize_data_for_storage(update_data)
                 await storage.update_data_async(output_path, sanitized_data)
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 LoggingUtil.warning("main", f"Storage 업데이트 실패: {e}")
         
         # 동기 함수로 Storage 업데이트 (transform 내부에서 호출)
@@ -1321,7 +1322,7 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
 
                 sanitized_data = storage.sanitize_data_for_storage(update_data)
                 storage.update_data(output_path, sanitized_data)
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 LoggingUtil.warning("main", f"Storage 업데이트 실패: {e}")
         
         result = transformer.transform(
@@ -1368,7 +1369,7 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
         LoggingUtil.info("main", f"🎉 표준 변환 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"표준 변환 오류: {job_id}", e)
         
         # 에러 상태 저장
@@ -1388,7 +1389,7 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
                 output_path,
                 sanitized_output
             )
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"에러 상태 저장 실패: {job_id}", save_error)
     finally:
         # 프로세스 종료 시 사용자별 임시 문서 정리
@@ -1434,7 +1435,7 @@ async def process_standard_transformation_job(job_id: str, complete_job_func: ca
                         transformer.cleanup_user_standards()
                     else:
                         pass
-            except Exception as cleanup_error:
+            except CATCHABLE_EXCEPTIONS as cleanup_error:
                 LoggingUtil.warning("main", f"사용자 표준 문서 정리 중 오류: {cleanup_error}")
         complete_job_func()
 
@@ -1574,7 +1575,7 @@ async def process_traceability_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 Traceability 추가 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
 
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"Traceability 추가 오류: {job_id}", e)
         try:
             error_output = {
@@ -1585,7 +1586,7 @@ async def process_traceability_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/traceability_generator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     finally:
         complete_job_func()
@@ -1642,7 +1643,7 @@ async def process_ddl_extractor_job(job_id: str, complete_job_func: callable):
         LoggingUtil.info("main", f"🎉 DDL 필드 추출 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
 
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"DDL 추출 오류: {job_id}", e)
         try:
             error_output = {
@@ -1653,7 +1654,7 @@ async def process_ddl_extractor_job(job_id: str, complete_job_func: callable):
             }
             output_path = f'jobs/ddl_extractor/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     finally:
         complete_job_func()
@@ -1693,7 +1694,7 @@ async def process_requirements_validator_job(job_id: str, complete_job_func: cal
         final_length = 0
         try:
             final_length = len(json.dumps(content, ensure_ascii=False))
-        except Exception:
+        except CATCHABLE_EXCEPTIONS:
             final_length = 0
 
         intermediate_lengths = _compute_intermediate_lengths(final_length, steps=3)
@@ -1736,7 +1737,7 @@ async def process_requirements_validator_job(job_id: str, complete_job_func: cal
         LoggingUtil.info("main", f"🎉 요구사항 검증 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
 
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"요구사항 검증 오류: {job_id}", e)
         try:
             error_output = {
@@ -1747,7 +1748,7 @@ async def process_requirements_validator_job(job_id: str, complete_job_func: cal
             }
             output_path = f'jobs/requirements_validator/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     finally:
         complete_job_func()
@@ -1814,7 +1815,7 @@ async def process_requirements_flow_stitcher_job(job_id: str, complete_job_func:
         LoggingUtil.info("main", f"🎉 Event flow stitching 완료: {job_id}")
         LoggingUtil.info("main", "────────────────────────────────────────────────────────────────")
 
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"Event flow stitching 오류: {job_id}", e)
         try:
             error_output = {
@@ -1826,7 +1827,7 @@ async def process_requirements_flow_stitcher_job(job_id: str, complete_job_func:
             }
             output_path = f'jobs/requirements_flow_stitcher/{job_id}/state/outputs'
             StorageSystemFactory.instance().set_data(output_path, error_output)
-        except Exception as save_error:
+        except CATCHABLE_EXCEPTIONS as save_error:
             LoggingUtil.exception("main", f"실패 저장 오류: {job_id}", save_error)
     finally:
         complete_job_func()
@@ -1875,7 +1876,7 @@ async def process_job_async(job_id: str, complete_job_func: callable):
     except asyncio.CancelledError:
         return
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         LoggingUtil.exception("main", f"Job 처리 오류: {job_id}", e)
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 class SummarizerState(TypedDict):
     """요약 생성 상태 (camelCase for Frontend compatibility)"""
@@ -180,7 +181,7 @@ Guidelines:
                 "progress": 50,
                 "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": "요약 생성 완료"}]
             }
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.exception("SummarizerWorkflow", "요약 생성 중 오류 발생", e)
             # 호출자(main.process_summarizer_job)가 isFailed=True 를 쓸 수 있도록 그대로 전파.
             # 과거에는 빈 리스트를 반환하면서 isCompleted=True 로 마무리되어, 청크 데이터가 묵음 손실되고

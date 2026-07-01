@@ -8,6 +8,7 @@ from src.project_generator.utils.trace_markdown_util import TraceMarkdownUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
 import json
 import re
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 class CommandReadModelState(TypedDict):
     """Command/ReadModel 추출 워크플로우 상태"""
@@ -502,7 +503,7 @@ CRITICAL INSTRUCTIONS:
                     "logs": state["logs"] + [f"Chunk {current_chunk_index + 1}/{total_chunks} completed"]
                 })
                 LoggingUtil.info(state["job_id"], f"Firebase updated with chunk {current_chunk_index + 1}/{total_chunks} results")
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 LoggingUtil.info(state["job_id"], f"Failed to update Firebase: {str(e)}")
             
             if next_chunk < total_chunks:
@@ -523,7 +524,7 @@ CRITICAL INSTRUCTIONS:
                     "progress": 80
                 }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             error_msg = f"Failed to parse JSON response: {str(e)}"
             LoggingUtil.info(state["job_id"], error_msg)
             return {
@@ -533,7 +534,7 @@ CRITICAL INSTRUCTIONS:
                 "logs": [error_msg]
             }
             
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_msg = f"Error in extract_commands_and_readmodels: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {
@@ -585,7 +586,7 @@ def finalize_result(state: CommandReadModelState) -> CommandReadModelState:
             "is_completed": True
         }
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_msg = f"Error in finalize_result: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {

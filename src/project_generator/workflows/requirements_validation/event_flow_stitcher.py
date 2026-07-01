@@ -27,6 +27,7 @@ import json
 
 from project_generator.utils.logging_util import LoggingUtil
 from project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class EventFlowStitcher:
@@ -117,7 +118,7 @@ class EventFlowStitcher:
                         partial = fut.result()
                         # 후행 배치가 같은 이름을 또 채울 일은 없지만 안전상 update 로 머지
                         stitch_index.update(partial)
-                    except Exception as e:
+                    except CATCHABLE_EXCEPTIONS as e:
                         LoggingUtil.error("EventFlowStitcher", f"Batch failed: {str(e)}")
                         # 한 배치 실패해도 나머지 결과는 사용
 
@@ -135,7 +136,7 @@ class EventFlowStitcher:
                 "progress": 100
             }
 
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.error("EventFlowStitcher", f"Failed: {str(e)}")
             # 실패해도 원본 events 그대로 돌려줘서 fallback 동작 (그림은 안 그려져도 데이터 보존).
             return {
@@ -177,7 +178,7 @@ class EventFlowStitcher:
                 f"Batch {batch_idx + 1}/{total_batches}: filled nextEvents for {filled}/{len(batch_events)}"
             )
             return partial
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.error("EventFlowStitcher", f"Batch {batch_idx + 1} error: {str(e)}")
             return {}
 

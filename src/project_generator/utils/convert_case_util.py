@@ -1,5 +1,6 @@
 from convert_case import camel_case, pascal_case, snake_case
 from pluralizer import Pluralizer
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 pluralizer = Pluralizer()
 class CaseConvertUtil:
@@ -7,7 +8,7 @@ class CaseConvertUtil:
     def camel_case(text: str) -> str:
         try:
             return camel_case(text)
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             words = text.replace('-', ' ').replace('_', ' ').split()
             if not words:
                 return text
@@ -17,7 +18,7 @@ class CaseConvertUtil:
     def pascal_case(text: str) -> str:
         try:
             return pascal_case(text)
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             words = text.replace('-', ' ').replace('_', ' ').split()
             if not words:
                 return text
@@ -27,14 +28,14 @@ class CaseConvertUtil:
     def snake_case(text: str) -> str:
         try:
             return snake_case(text)
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             return text.replace('-', '_')
 
     @staticmethod
     def plural(text: str) -> str:
         try:
             return pluralizer.plural(camel_case(text))
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             try:
                 camel = CaseConvertUtil.camel_case(text)
                 if camel.endswith('y'):
@@ -43,5 +44,5 @@ class CaseConvertUtil:
                     return camel + 'es'
                 else:
                     return camel + 's'
-            except:
+            except CATCHABLE_EXCEPTIONS:
                 return text

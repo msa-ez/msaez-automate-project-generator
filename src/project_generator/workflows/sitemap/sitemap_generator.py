@@ -7,6 +7,7 @@ from src.project_generator.utils.refs_trace_util import RefsTraceUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
 import json
 import re
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 class SiteMapState(TypedDict):
     """SiteMap 생성 워크플로우 상태"""
@@ -283,7 +284,7 @@ RULES:
                     "logs": state["logs"] + [f"Chunk {current_chunk_index + 1}/{total_chunks} completed"]
                 })
                 LoggingUtil.info(state["job_id"], f"Firebase updated with chunk {current_chunk_index + 1}/{total_chunks} results")
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 LoggingUtil.info(state["job_id"], f"Failed to update Firebase: {str(e)}")
             
             if next_chunk < total_chunks:
@@ -314,7 +315,7 @@ RULES:
                 "logs": [error_msg]
             }
             
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_msg = f"Error in generate_sitemap: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {
@@ -355,7 +356,7 @@ def finalize_result(state: SiteMapState) -> SiteMapState:
             "is_completed": True
         }
         
-    except Exception as e:
+    except CATCHABLE_EXCEPTIONS as e:
         error_msg = f"Error in finalize_result: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {

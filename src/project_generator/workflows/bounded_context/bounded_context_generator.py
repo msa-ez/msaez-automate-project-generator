@@ -17,6 +17,7 @@ from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.xml_util import XmlUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class BoundedContextState(TypedDict):
@@ -296,7 +297,7 @@ class BoundedContextWorkflow:
                 "progress": 50,
                 "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": "BC 생성 완료"}]
             }
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.exception("BoundedContextWorkflow", "BC 생성 중 오류 발생", e)
             return {
                 "thoughts": "",
@@ -451,7 +452,7 @@ class BoundedContextWorkflow:
                         coverage_logs.append({"timestamp": datetime.now().isoformat(), "message": msg, "level": "warning"})
                     else:
                         LoggingUtil.info("BoundedContextWorkflow", f"✅ 모든 {len(all_user_stories)} user story 가 BC 에 매핑된 것으로 추정.")
-        except Exception as cov_err:
+        except CATCHABLE_EXCEPTIONS as cov_err:
             LoggingUtil.warning("BoundedContextWorkflow", f"Coverage check failed (non-fatal): {cov_err}")
 
         # Frontend의 _processAIOutput 로직 구현

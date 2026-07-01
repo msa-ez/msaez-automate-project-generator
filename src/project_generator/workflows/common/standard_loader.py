@@ -43,6 +43,7 @@ except ImportError:
         pass
 
 from src.project_generator.config import Config
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 try:
     from langchain_openai import ChatOpenAI  # noqa: F401 - availability check only
@@ -88,7 +89,7 @@ class StandardLoader:
                     frequency_penalty=0.0,
                     presence_penalty=0.0
                 )
-            except Exception as e:
+            except CATCHABLE_EXCEPTIONS as e:
                 print(f"⚠️  Failed to initialize LLM: {e}")
                 self.enable_llm = False
     
@@ -126,7 +127,7 @@ class StandardLoader:
                         chunks = loader_func(file_path)
                         documents.extend(chunks)
                         print(f"✅ Loaded {len(chunks)} chunks from {file_path.name}")
-                    except Exception as e:
+                    except CATCHABLE_EXCEPTIONS as e:
                         print(f"⚠️  Failed to load {file_path.name}: {e}")
         
         return documents
@@ -166,7 +167,7 @@ class StandardLoader:
                 chunks = self._chunk_excel_by_rows(df, file_path, sheet_name, chunk_size=1)
                 documents.extend(chunks)
         
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             print(f"⚠️  Failed to parse Excel file {file_path}: {e}")
             import traceback
             traceback.print_exc()
@@ -418,7 +419,7 @@ class StandardLoader:
                     )
                     documents.append(doc)
         
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             print(f"⚠️  Failed to parse PPT file {file_path}: {e}")
             import traceback
             traceback.print_exc()
@@ -472,7 +473,7 @@ class StandardLoader:
                 chunks = self._chunk_text_by_paragraphs(content, file_path)
                 documents.extend(chunks)
         
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             print(f"⚠️  Failed to parse text file {file_path}: {e}")
             import traceback
             traceback.print_exc()

@@ -28,6 +28,7 @@ except ImportError:  # 의존성 미설치 시 import 단계에서 죽지 않도
 
 from ..utils.logging_util import LoggingUtil
 from .storage_system import StorageSystem
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 @dataclass
@@ -224,7 +225,7 @@ class PostgresStorageSystem(StorageSystem):
     def _safe(self, op_name: str, fn: Callable, default: Any) -> Any:
         try:
             return fn()
-        except Exception as e:  # noqa: BLE001
+        except CATCHABLE_EXCEPTIONS as e:  # noqa: BLE001
             LoggingUtil.exception("postgres_storage_system", f"{op_name} 실패", e)
             return default
 

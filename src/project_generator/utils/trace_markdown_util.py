@@ -3,6 +3,7 @@ TraceMarkdownUtil - 프론트엔드 TraceMarkdownUtil과 동일한 기능
 BC의 requirements 배열을 기반으로 markdown과 traceMap 생성
 """
 from typing import Dict, List, Optional
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class TraceMarkdownUtil:
@@ -315,7 +316,7 @@ class TraceMarkdownUtil:
                                 add_lines('```json')
                                 add_lines(formatted_json, req_refs, False)
                                 add_lines('```')
-                            except:
+                            except CATCHABLE_EXCEPTIONS:
                                 add_lines(text_content, req_refs, False)
                         else:
                             add_lines(text_content, req_refs, True)

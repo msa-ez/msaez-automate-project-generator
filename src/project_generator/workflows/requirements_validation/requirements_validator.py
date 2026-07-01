@@ -5,6 +5,7 @@ import re
 
 from project_generator.utils.logging_util import LoggingUtil
 from project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class RequirementsValidatorState(TypedDict):
@@ -83,7 +84,7 @@ class RequirementsValidator:
                 'progress': 100
             }
 
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.error("RequirementsValidator", f"Failed: {str(e)}")
             return {
                 'type': 'ANALYSIS_RESULT',

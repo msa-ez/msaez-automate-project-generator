@@ -10,6 +10,7 @@ from typing import Optional, Dict
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class QueryExpander:
@@ -83,7 +84,7 @@ class QueryExpander:
                            f"🔍 쿼리 확장: '{base_keyword}' → '{expanded_query[:100]}...' ({category})")
             
             return expanded_query
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.warning("QueryExpander", 
                               f"⚠️  쿼리 확장 실패: {e}, 원본 키워드 사용: '{base_keyword}'")
             return base_keyword

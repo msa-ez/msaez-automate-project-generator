@@ -17,6 +17,7 @@ from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.refs_trace_util import RefsTraceUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
 class RequirementsMappingState(TypedDict):
@@ -150,7 +151,7 @@ class RequirementsMappingWorkflow:
                     is_ui_bc=is_ui_bc,
                     initial_reqs=relevant_reqs
                 )
-            except Exception as augment_err:
+            except CATCHABLE_EXCEPTIONS as augment_err:
                 LoggingUtil.warning("RequirementsMapper", f"Coverage augmentation failed (continuing with initial result): {augment_err}")
 
             # Frontend와 동일한 순서:
@@ -192,7 +193,7 @@ class RequirementsMappingWorkflow:
                 }]
             }
             
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             error_msg = f"Failed to map requirements: {str(e)}"
             LoggingUtil.exception("RequirementsMapper", "Mapping failed", e)
             
@@ -269,7 +270,7 @@ If after honest re-review there really is nothing more, return an empty array.
         try:
             augment_data = self.llm_structured.invoke(augment_prompt)
             extra_reqs = augment_data.get('relevantRequirements', []) or []
-        except Exception as e:
+        except CATCHABLE_EXCEPTIONS as e:
             LoggingUtil.warning("RequirementsMapper", f"Augment LLM call failed for {bc_name}: {e}")
             return initial_reqs
 

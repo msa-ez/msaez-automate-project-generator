@@ -31,11 +31,11 @@ class SimpleAutoScaler:
         try:
             # Pod 내부에서 실행되는 경우
             config.load_incluster_config()
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException):
+        except:
             try:
                 # 로컬에서 테스트하는 경우
                 config.load_kube_config()
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException):
+            except:
                 # Docker 환경 등 Kubernetes가 없는 경우
                 raise Exception("Kubernetes config not available")
         
@@ -50,7 +50,7 @@ class SimpleAutoScaler:
                 namespace=self.namespace
             )
             return deployment.spec.replicas
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+        except Exception as e:
             LoggingUtil.exception("simple_autoscaler", f"현재 replicas 조회 실패: {e}", e)
             return 1
     
@@ -68,7 +68,7 @@ class SimpleAutoScaler:
                     active_count += 1
             
             return active_count
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+        except Exception as e:
             LoggingUtil.exception("simple_autoscaler", f"활성 Pod 수 조회 실패: {e}", e)
             return 1
     
@@ -93,7 +93,7 @@ class SimpleAutoScaler:
             
             return True
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+        except Exception as e:
             LoggingUtil.exception("simple_autoscaler", f"replicas 변경 실패: {e}", e)
             return False
     
@@ -187,7 +187,7 @@ class SimpleAutoScaler:
             
             return is_leader
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+        except Exception as e:
             LoggingUtil.exception("simple_autoscaler", f"리더 확인 실패: {e}", e)
             return False
     
@@ -243,7 +243,7 @@ class SimpleAutoScaler:
                 self.last_processing_jobs_count = processing_jobs
                 await asyncio.sleep(self.scale_check_interval)
                 
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+            except Exception as e:
                 LoggingUtil.exception("simple_autoscaler", f"자동 스케일링 오류: {e}", e)
                 await asyncio.sleep(self.scale_check_interval)
 
@@ -267,7 +267,7 @@ class SimpleAutoScaler:
             
             return waiting_count
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+        except Exception as e:
             LoggingUtil.exception("simple_autoscaler", "대기 작업 수 계산 오류", e)
             return 0
 
@@ -298,7 +298,7 @@ class SimpleAutoScaler:
             
             return processing_count
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+        except Exception as e:
             LoggingUtil.exception("simple_autoscaler", "처리 중인 작업 수 계산 오류", e)
             return 0
 
@@ -323,7 +323,7 @@ def _should_init_autoscaler():
 if _should_init_autoscaler():
     try:
         autoscaler = SimpleAutoScaler()
-    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, client.exceptions.ApiException, config.ConfigException) as e:
+    except Exception as e:
         LoggingUtil.warning("simple_autoscaler", f"AutoScaler 초기화 실패 (Kubernetes 없음): {e}")
         autoscaler = None
 else:

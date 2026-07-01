@@ -454,7 +454,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
             })
             state['progress'] = 90
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.error("PreviewFieldsGenerator", f"Error generating fields: {str(e)}")
             state['isFailed'] = True
             state['logs'].append({
@@ -547,8 +547,8 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                     num_key = int(key)
                     if str(num_key) == str(key):
                         normalized_trace_map[num_key] = value
-                except (ValueError, TypeError) as _exc:
-                    LoggingUtil.warning("preview_fields_generator", f"예외 발생(무시됨): {_exc}")
+                except (ValueError, TypeError):
+                    pass
             return normalized_trace_map
         
         # 배열 형태인 경우 변환
@@ -566,8 +566,8 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                         num_key = int(key)
                         if str(num_key) == str(key):
                             restored_trace_map[num_key] = item['value']
-                    except (ValueError, TypeError) as _exc:
-                        LoggingUtil.warning("preview_fields_generator", f"예외 발생(무시됨): {_exc}")
+                    except (ValueError, TypeError):
+                        pass
                 else:
                     # Firebase가 비연속 숫자 키 객체를 배열로 변환한 경우
                     # 배열 인덱스가 원래 키와 일치함 (예: 인덱스 4 = 원래 키 "4")
@@ -666,7 +666,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                 # 2. validateRefs: 범위 검증 (description 기준, 프론트엔드와 동일)
                 try:
                     temp_generator._validate_refs(field['refs'], description)
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                except Exception as e:
                     if is_first:
                         LoggingUtil.warning("PreviewFieldsGenerator", 
                             f"❌ [validate 실패] field='{field.get('fieldName', 'unknown')}', "
@@ -707,7 +707,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                     converted_fields += 1
                     return True
                     
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+            except Exception as e:
                 if is_first:
                     LoggingUtil.error("PreviewFieldsGenerator", 
                         f"❌ [예외 발생] field='{field.get('fieldName', 'unknown')}', "

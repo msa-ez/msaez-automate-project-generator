@@ -361,7 +361,7 @@ class AggregateDraftGenerator:
                 }]
             }
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.exception("AggregateDraftGenerator", f"Failed to generate drafts for {bc_name}", e)
             return {
                 "options": [],

@@ -18,7 +18,7 @@ class JsonUtil:
                 else:
                     return item if isinstance(item, (str, int, float, bool, type(None))) else str(item)
                 
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+            except Exception as e:
                 LoggingUtil.exception("json_util", f"Error converting to json", e)
                 return item
         
@@ -43,7 +43,7 @@ class JsonUtil:
     def convert_to_dict(json_str: str) -> dict:
         try :     
             return json.loads(json_str)
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.exception("json_util", f"Error converting to dict", e)
             return {}
 

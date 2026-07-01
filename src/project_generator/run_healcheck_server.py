@@ -91,15 +91,15 @@ def upload_standard_documents():
                 # 파일 권한 설정 (non-root 사용자를 위해)
                 try:
                     os.chmod(file_path, 0o666)
-                except (OSError, PermissionError) as _exc:
-                    logging.getLogger(__name__).warning(f"예외 발생(무시됨): {_exc}")
+                except (OSError, PermissionError):
+                    pass  # 권한 설정 실패해도 계속 진행
                 
                 uploaded_files.append({
                     'name': filename,
                     'size': file_path.stat().st_size,
                     'path': str(file_path)
                 })
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+            except Exception as e:
                 errors.append(f'{filename}: 저장 실패 - {str(e)}')
         
         if uploaded_files:
@@ -116,7 +116,7 @@ def upload_standard_documents():
                 'errors': errors
             }), 400
             
-    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+    except Exception as e:
         logging.error(f'Standard documents upload error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
@@ -185,7 +185,7 @@ def list_standard_documents():
         logging.info(f'[Standard Documents List] Total files found: {len(files)}')
         return jsonify({'files': files}), 200
         
-    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+    except Exception as e:
         logging.error(f'Standard documents list error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
@@ -221,7 +221,7 @@ def delete_standard_document():
             'message': f'{filename} 파일이 삭제되었습니다.'
         }), 200
         
-    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+    except Exception as e:
         logging.error(f'Standard documents delete error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 

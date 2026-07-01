@@ -119,7 +119,7 @@ def _get_file_lock(path: str):
                 # Lock 해제
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                 print(f"🔓 File lock released: {lock_file_path}")
-    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+    except Exception as e:
         print(f"⚠️  File lock error: {e}")
         # Lock 실패해도 계속 진행 (fallback)
         yield
@@ -127,8 +127,8 @@ def _get_file_lock(path: str):
         if lock_file:
             try:
                 lock_file.close()
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                print(f"예외 발생(무시됨): {_exc}")
+            except:
+                pass
 
 
 class RAGRetriever:
@@ -151,8 +151,8 @@ class RAGRetriever:
         # 이는 ChromaDB가 SQLite 파일을 생성할 때 readonly로 생성되는 문제를 방지
         try:
             os.umask(0)
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-            print(f"예외 발생(무시됨): {_exc}")
+        except:
+            pass
         
         # 초기화 전에 이전 인스턴스의 캐시를 클리어 (프로세스 레벨 싱글톤 캐시 문제 방지)
         if HAS_CHROMA:
@@ -179,12 +179,12 @@ class RAGRetriever:
                         instance = SharedSystemClient._instances[identifier]
                         if hasattr(instance, 'close'):
                             instance.close()
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                        print(f"예외 발생(무시됨): {_exc}")
+                    except:
+                        pass
                     del SharedSystemClient._instances[identifier]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             # 캐시 클리어 실패해도 계속 진행 (초기화에서 처리)
-            print(f"예외 발생(무시됨): {e}")
+            pass
     
     def _fix_sqlite_permissions(self, path_obj: Path):
         """SQLite 파일 및 디렉토리 권한 수정 (readonly database 오류 방지)"""
@@ -214,17 +214,17 @@ class RAGRetriever:
                             try:
                                 os.chmod(file_path, 0o666)
                                 print(f"✅ Fixed permissions for SQLite file: {file_path}")
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                            except Exception as e:
                                 print(f"⚠️  Failed to fix permissions for {file_path}: {e}")
                         else:
                             try:
                                 os.chmod(file_path, 0o666)
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                                print(f"예외 발생(무시됨): {_exc}")
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                            except:
+                                pass
+                except Exception as e:
                     # 개별 파일/디렉토리 권한 수정 실패는 무시
-                    print(f"예외 발생(무시됨): {e}")
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                    pass
+        except Exception as e:
             print(f"⚠️  Failed to fix SQLite permissions: {e}")
     
     def _initialize_vectorstore(self):
@@ -250,8 +250,8 @@ class RAGRetriever:
                         if hasattr(SharedSystemClient, '_instances') and identifier in SharedSystemClient._instances:
                             # 기존 인스턴스가 있으면 제거 (설정 충돌 방지)
                             del SharedSystemClient._instances[identifier]
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                        print(f"예외 발생(무시됨): {_exc}")
+                    except:
+                        pass
                     
                     # ChromaDB 1.4.0에서는 tenant를 명시적으로 지정해야 tenants 테이블 문제를 방지할 수 있음
                     import chromadb
@@ -277,11 +277,11 @@ class RAGRetriever:
                                 if current_path.exists():
                                     os.chmod(current_path, 0o777)
                                 current_path = current_path.parent
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                            except:
                                 break
                         time.sleep(0.5)
                         print(f"✅ Directory permissions set: {oct(os.stat(vectorstore_path_obj).st_mode)}")
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
+                    except Exception as perm_error:
                         print(f"⚠️  Permission setting failed: {perm_error}")
                     
                     # 기존 Vector Store 로드 시 collection_name은 자동으로 찾음
@@ -304,7 +304,7 @@ class RAGRetriever:
                                 self._fix_sqlite_permissions(vectorstore_path_obj)
                                 print(f"✅ ChromaDB loaded successfully")
                                 break  # 성공하면 루프 탈출
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chroma_init_error:
+                            except Exception as chroma_init_error:
                                 error_msg = str(chroma_init_error).lower()
                                 if "readonly" in error_msg and chroma_retry < max_chroma_retries - 1:
                                     print(f"⚠️  ChromaDB loading failed (attempt {chroma_retry + 1}/{max_chroma_retries}): {chroma_init_error}")
@@ -320,10 +320,10 @@ class RAGRetriever:
                                                 if current_path.exists():
                                                     os.chmod(current_path, 0o777)
                                                 current_path = current_path.parent
-                                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                                            except:
                                                 break
                                         time.sleep(1.0)
-                                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chmod_error:
+                                    except Exception as chmod_error:
                                         print(f"⚠️  Failed to fix directory permissions: {chmod_error}")
                                 else:
                                     # 마지막 시도이거나 readonly가 아닌 오류인 경우
@@ -342,7 +342,7 @@ class RAGRetriever:
                             test_results = self.vectorstore.similarity_search_with_score("test", k=1)
                             self._initialized = True
                             print(f"✅ Vector Store loaded from {self.vectorstore_path}")
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as search_test_error:
+                        except Exception as search_test_error:
                             # 검색 실패 시 collection이 없거나 손상된 것으로 간주
                             error_msg = str(search_test_error).lower()
                             if "no such table" in error_msg or "collections" in error_msg or "database" in error_msg:
@@ -357,7 +357,7 @@ class RAGRetriever:
                                 # 다른 오류는 무시하고 계속 진행 (빈 collection일 수 있음)
                                 self._initialized = True
                                 print(f"✅ Vector Store loaded from {self.vectorstore_path} (collection may be empty)")
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as verify_error:
+                    except Exception as verify_error:
                         # 데이터베이스 손상 감지 (예: tenants 테이블 없음)
                         error_msg = str(verify_error).lower()
                         if "tenants" in error_msg or "no such table" in error_msg or "database" in error_msg or "collections" in error_msg:
@@ -370,7 +370,7 @@ class RAGRetriever:
                                 raise verify_error
                         else:
                             raise verify_error
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as init_error:
+                except Exception as init_error:
                     # 초기화 실패 시 복구 시도
                     error_msg = str(init_error).lower()
                     if "tenants" in error_msg or "no such table" in error_msg or "database" in error_msg:
@@ -400,13 +400,13 @@ class RAGRetriever:
                                 if current_path.exists():
                                     os.chmod(current_path, 0o777)
                                 current_path = current_path.parent
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                            except:
                                 break
                     finally:
                         os.umask(original_umask)
                     time.sleep(0.5)
                     print(f"✅ Directory permissions set: {oct(os.stat(vectorstore_path_obj).st_mode)}")
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
+                except Exception as perm_error:
                     print(f"⚠️  Permission setting failed: {perm_error}")
                 
                 # ChromaDB 싱글톤 캐시 확인 및 정리
@@ -415,8 +415,8 @@ class RAGRetriever:
                     identifier = str(self.vectorstore_path)
                     if hasattr(SharedSystemClient, '_instances') and identifier in SharedSystemClient._instances:
                         del SharedSystemClient._instances[identifier]
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                    print(f"예외 발생(무시됨): {_exc}")
+                except:
+                    pass
                 
                 # ChromaDB 1.4.0에서는 tenant를 명시적으로 지정
                 import chromadb
@@ -451,7 +451,7 @@ class RAGRetriever:
                             self._initialized = True
                             print(f"✅ Vector Store created at {self.vectorstore_path}")
                             break  # 성공하면 루프 탈출
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chroma_init_error:
+                        except Exception as chroma_init_error:
                             error_msg = str(chroma_init_error).lower()
                             if "readonly" in error_msg and chroma_retry < max_chroma_retries - 1:
                                 print(f"⚠️  ChromaDB initialization failed (attempt {chroma_retry + 1}/{max_chroma_retries}): {chroma_init_error}")
@@ -467,10 +467,10 @@ class RAGRetriever:
                                             if current_path.exists():
                                                 os.chmod(current_path, 0o777)
                                             current_path = current_path.parent
-                                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                                        except:
                                             break
                                     time.sleep(1.0)
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chmod_error:
+                                except Exception as chmod_error:
                                     print(f"⚠️  Failed to fix directory permissions: {chmod_error}")
                             else:
                                 # 마지막 시도이거나 readonly가 아닌 오류인 경우
@@ -487,7 +487,7 @@ class RAGRetriever:
             elif not self.vectorstore:
                 print(f"⚠️  Vector Store initialization incomplete: vectorstore is None")
                 self._initialized = False
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Failed to initialize Vector Store: {e}")
             print("   RAG features will work with fallback mode.")
             self._initialized = False
@@ -532,11 +532,11 @@ class RAGRetriever:
                                 server = client._server
                                 if hasattr(server, 'close'):
                                     server.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                     self.vectorstore = None
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                    print(f"예외 발생(무시됨): {_exc}")
+                except:
+                    pass
             
             # ChromaDB 싱글톤 인스턴스 완전 정리 (디렉토리 삭제 전에)
             try:
@@ -556,19 +556,19 @@ class RAGRetriever:
                                 instance = SharedSystemClient._instances[identifier]
                                 if hasattr(instance, 'close'):
                                     instance.close()
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                                print(f"예외 발생(무시됨): {_exc}")
+                            except:
+                                pass
                             del SharedSystemClient._instances[identifier]
                         
                         # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
                         # 피드백: 여러 Pod에서 동시에 전체 캐시를 지우면 레이스 컨디션 발생
                         print(f"🗑️  Removing ChromaDB instance for this path only: {identifier}")
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as clear_error:
+                except Exception as clear_error:
                     print(f"⚠️  Failed to clear SharedSystemClient cache: {clear_error}")
                 
                 # chromadb 모듈 레벨 캐시는 건드리지 않음
                 # 피드백: 런타임에 캐시를 지우지 말 것
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cleanup_error:
+            except Exception as cleanup_error:
                 print(f"⚠️  ChromaDB cleanup warning: {cleanup_error}")
             
             # 피드백: 디렉토리 삭제는 복구 시에만 수행 (다른 Pod가 읽을 수 있으므로 신중하게)
@@ -589,9 +589,9 @@ class RAGRetriever:
                     # 파일 시스템 동기화 (디렉토리 삭제가 완전히 반영되도록)
                     try:
                         os.sync()
-                    except AttributeError as _exc:
+                    except AttributeError:
                         # os.sync()는 Linux에서만 사용 가능, macOS/Windows에서는 무시
-                        print(f"예외 발생(무시됨): {_exc}")
+                        pass
                     
                     # 디렉토리가 완전히 삭제되었는지 확인
                     max_retries = 10
@@ -601,7 +601,7 @@ class RAGRetriever:
                         time.sleep(0.5)
                     else:
                         print(f"⚠️  Directory still exists after deletion attempts: {self.vectorstore_path}")
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as delete_error:
+                except Exception as delete_error:
                     print(f"⚠️  Failed to delete directory: {delete_error}")
                     # 삭제 실패해도 계속 진행 (재생성 시도)
             
@@ -620,7 +620,7 @@ class RAGRetriever:
                         if current_path.exists():
                             os.chmod(current_path, 0o777)
                         current_path = current_path.parent
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                    except:
                         break
             finally:
                 os.umask(original_umask)  # 원래 umask 복원
@@ -644,10 +644,10 @@ class RAGRetriever:
                             os.chmod(os.path.join(root, d), 0o777)
                         for f in files:
                             os.chmod(os.path.join(root, f), 0o666)
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                        print(f"예외 발생(무시됨): {_exc}")
+                    except:
+                        pass
                 time.sleep(1.0)
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
+            except Exception as perm_error:
                 print(f"⚠️  Failed to set permissions: {perm_error}")
                 # 권한 설정 실패해도 계속 진행 (PVC에서 자동으로 권한이 설정될 수 있음)
             
@@ -672,8 +672,8 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                         del SharedSystemClient._instances[identifier]
                     
                     # 모든 인스턴스 클리어 및 명시적 종료 (더 안전한 방법)
@@ -681,8 +681,8 @@ class RAGRetriever:
                         try:
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                     # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
                     identifier = str(self.vectorstore_path)
                     if identifier in SharedSystemClient._instances:
@@ -690,14 +690,14 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                         del SharedSystemClient._instances[identifier]
                     print(f"✅ ChromaDB instance removed from cache for this path only")
                 
                 # chromadb 모듈 레벨 캐시는 건드리지 않음
                 # 피드백: 런타임에 캐시를 지우지 말 것
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cache_clear_error:
+            except Exception as cache_clear_error:
                 print(f"⚠️  Failed to clear SharedSystemClient cache before client creation: {cache_clear_error}")
             
             try:
@@ -718,7 +718,7 @@ class RAGRetriever:
                     )
                 )
                 print(f"✅ ChromaDB client created successfully")
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as client_error:
+            except Exception as client_error:
                 # ChromaDB 클라이언트 설정 실패 시 기본 설정 사용
                 error_msg = str(client_error)
                 print(f"⚠️  ChromaDB client configuration failed: {error_msg}")
@@ -734,8 +734,8 @@ class RAGRetriever:
                                 try:
                                     if hasattr(instance, 'close'):
                                         instance.close()
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                                    print(f"예외 발생(무시됨): {_exc}")
+                                except:
+                                    pass
                             # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
                             identifier = str(self.vectorstore_path)
                             if identifier in SharedSystemClient._instances:
@@ -743,8 +743,8 @@ class RAGRetriever:
                                     instance = SharedSystemClient._instances[identifier]
                                     if hasattr(instance, 'close'):
                                         instance.close()
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                                    print(f"예외 발생(무시됨): {_exc}")
+                                except:
+                                    pass
                                 del SharedSystemClient._instances[identifier]
                         time.sleep(1.0)  # 짧은 대기 시간
                         
@@ -759,7 +759,7 @@ class RAGRetriever:
                                 is_persistent=True
                             )
                         )
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_error:
+                    except Exception as retry_error:
                         print(f"   Aggressive retry also failed: {retry_error}")
                         chroma_client = None
                 # tenants 테이블 오류인 경우, tenant 없이 재시도
@@ -775,7 +775,7 @@ class RAGRetriever:
                                 is_persistent=True
                             )
                         )
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_error:
+                    except Exception as retry_error:
                         print(f"   Retry also failed: {retry_error}")
                         chroma_client = None
                 else:
@@ -794,7 +794,7 @@ class RAGRetriever:
                         if current_path.exists():
                             os.chmod(current_path, 0o777)
                         current_path = current_path.parent
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                    except:
                         break
                 
                 # 현재 권한 확인
@@ -810,7 +810,7 @@ class RAGRetriever:
                 
                 time.sleep(1.0)  # 권한 설정이 완전히 반영되도록 대기
                 print(f"✅ Directory permissions set: {oct(os.stat(vectorstore_path_obj).st_mode)}")
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_check_error:
+            except Exception as perm_check_error:
                 print(f"⚠️  Permission check failed: {perm_check_error}")
                 import traceback
                 traceback.print_exc()
@@ -846,7 +846,7 @@ class RAGRetriever:
                             if current_path.exists():
                                 os.chmod(current_path, 0o777)
                             current_path = current_path.parent
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                        except:
                             break
                     
                     # SQLite 파일을 미리 생성하고 권한 설정 (ChromaDB가 덮어쓸 수 있지만 권한은 유지됨)
@@ -855,14 +855,14 @@ class RAGRetriever:
                             sqlite_path.touch()
                             os.chmod(sqlite_path, 0o666)
                             print(f"✅ Pre-created SQLite file: {sqlite_path}")
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as create_error:
+                        except Exception as create_error:
                             print(f"⚠️  Failed to pre-create {sqlite_path}: {create_error}")
                     else:
                         # 이미 존재하는 파일도 권한 확인 및 수정
                         try:
                             os.chmod(sqlite_path, 0o666)
                             print(f"✅ Fixed permissions for existing SQLite file: {sqlite_path}")
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chmod_error:
+                        except Exception as chmod_error:
                             print(f"⚠️  Failed to fix permissions for {sqlite_path}: {chmod_error}")
                 
                 time.sleep(0.5)  # 파일 생성 및 권한 설정이 완전히 반영되도록 대기
@@ -894,12 +894,12 @@ class RAGRetriever:
                                 try:
                                     os.chmod(sqlite_path, 0o666)
                                     print(f"✅ Fixed permissions after ChromaDB init: {sqlite_path}")
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as post_chmod_error:
+                                except Exception as post_chmod_error:
                                     print(f"⚠️  Failed to fix permissions after init for {sqlite_path}: {post_chmod_error}")
                         self._fix_sqlite_permissions(vectorstore_path_obj)
                         print(f"✅ ChromaDB initialized successfully")
                         break  # 성공하면 루프 탈출
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chroma_init_error:
+                    except Exception as chroma_init_error:
                         error_msg = str(chroma_init_error).lower()
                         if "readonly" in error_msg and chroma_retry < max_chroma_retries - 1:
                             print(f"⚠️  ChromaDB initialization failed (attempt {chroma_retry + 1}/{max_chroma_retries}): {chroma_init_error}")
@@ -915,10 +915,10 @@ class RAGRetriever:
                                         if current_path.exists():
                                             os.chmod(current_path, 0o777)
                                         current_path = current_path.parent
-                                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                                    except:
                                         break
                                 time.sleep(1.0)
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chmod_error:
+                            except Exception as chmod_error:
                                 print(f"⚠️  Failed to fix directory permissions: {chmod_error}")
                         else:
                             # 마지막 시도이거나 readonly가 아닌 오류인 경우
@@ -932,7 +932,7 @@ class RAGRetriever:
             try:
                 time.sleep(0.5)  # ChromaDB가 파일을 생성할 시간을 줌
                 self._fix_sqlite_permissions(vectorstore_path_obj)
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as post_perm_error:
+            except Exception as post_perm_error:
                 print(f"⚠️  Failed to set post-creation permissions: {post_perm_error}")
             
             # 초기화 검증: 컬렉션 접근 테스트
@@ -941,12 +941,12 @@ class RAGRetriever:
                 self._initialized = True
                 print(f"✅ Vector Store repaired and reinitialized")
                 return True
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as verify_error:
+            except Exception as verify_error:
                 print(f"⚠️  Vector Store repair verification failed: {verify_error}")
                 self._initialized = False
                 self.vectorstore = None
                 return False
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Failed to repair Vector Store: {e}")
             import traceback
             traceback.print_exc()
@@ -992,7 +992,7 @@ class RAGRetriever:
                 print(f"🔧 Attempting to delete collection...")
                 self.vectorstore.delete_collection()
                 print(f"🗑️  Vector Store collection deleted: {self.vectorstore_path}")
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as delete_error:
+            except Exception as delete_error:
                 print(f"⚠️  Failed to delete collection (will use directory deletion): {delete_error}")
             
             # ChromaDB 싱글톤 캐시 완전 클리어 (디렉토리 삭제 전에)
@@ -1013,7 +1013,7 @@ class RAGRetriever:
                 
                 # chromadb 모듈 레벨 캐시는 건드리지 않음
                 # 피드백: 런타임에 캐시를 지우지 말 것
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cache_clear_error:
+            except Exception as cache_clear_error:
                 print(f"⚠️  Failed to clear SharedSystemClient cache: {cache_clear_error}")
             
             # 기존 vectorstore 인스턴스 정리
@@ -1046,7 +1046,7 @@ class RAGRetriever:
                         if current_path.exists():
                             os.chmod(current_path, 0o777)
                         current_path = current_path.parent
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                    except:
                         break
             finally:
                 os.umask(original_umask)  # 원래 umask 복원
@@ -1070,10 +1070,10 @@ class RAGRetriever:
                             os.chmod(os.path.join(root, d), 0o777)
                         for f in files:
                             os.chmod(os.path.join(root, f), 0o666)
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                        print(f"예외 발생(무시됨): {_exc}")
+                    except:
+                        pass
                 time.sleep(1.0)
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
+            except Exception as perm_error:
                 print(f"⚠️  Failed to set permissions: {perm_error}")
             
             # 클라이언트 생성 전에 캐시를 완전히 클리어 (중요!)
@@ -1091,8 +1091,8 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                         del SharedSystemClient._instances[identifier]
                     
                     # 해당 경로의 인스턴스만 제거 (전체 캐시를 지우지 않음)
@@ -1102,14 +1102,14 @@ class RAGRetriever:
                             instance = SharedSystemClient._instances[identifier]
                             if hasattr(instance, 'close'):
                                 instance.close()
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                         del SharedSystemClient._instances[identifier]
                     print(f"✅ ChromaDB instance removed from cache for this path only")
                 
                 # chromadb 모듈 레벨 캐시는 건드리지 않음
                 # 피드백: 런타임에 캐시를 지우지 말 것
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as cache_clear_error:
+            except Exception as cache_clear_error:
                 print(f"⚠️  Failed to clear SharedSystemClient cache before client creation: {cache_clear_error}")
             
             # ChromaDB 클라이언트 생성 (재시도 로직 포함)
@@ -1128,7 +1128,7 @@ class RAGRetriever:
                     )
                     print(f"✅ ChromaDB client created successfully (attempt {retry + 1}/{max_retries})")
                     break
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as client_error:
+                except Exception as client_error:
                     error_msg = str(client_error).lower()
                     if "already exists" in error_msg:
                         # 캐시를 다시 클리어하고 재시도
@@ -1143,13 +1143,13 @@ class RAGRetriever:
                                         instance = SharedSystemClient._instances[identifier]
                                         if hasattr(instance, 'close'):
                                             instance.close()
-                                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                                        print(f"예외 발생(무시됨): {_exc}")
+                                    except:
+                                        pass
                                     del SharedSystemClient._instances[identifier]
                             # chromadb 모듈 레벨 캐시는 건드리지 않음
                             time.sleep(1.0)  # 짧은 대기 시간
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as _exc:
-                            print(f"예외 발생(무시됨): {_exc}")
+                        except:
+                            pass
                         if retry == max_retries - 1:
                             raise
                     else:
@@ -1178,13 +1178,13 @@ class RAGRetriever:
                             if current_path.exists():
                                 os.chmod(current_path, 0o777)
                             current_path = current_path.parent
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                        except:
                             break
                 finally:
                     os.umask(original_umask)
                 time.sleep(1.0)  # 권한 설정이 완전히 반영되도록 대기
                 print(f"✅ Directory permissions set: {oct(os.stat(vectorstore_path_obj).st_mode)}")
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as perm_error:
+            except Exception as perm_error:
                 print(f"⚠️  Permission setting failed: {perm_error}")
                 import traceback
                 traceback.print_exc()
@@ -1220,7 +1220,7 @@ class RAGRetriever:
                             if current_path.exists():
                                 os.chmod(current_path, 0o777)
                             current_path = current_path.parent
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                        except:
                             break
                     
                     # SQLite 파일을 미리 생성하고 권한 설정 (ChromaDB가 덮어쓸 수 있지만 권한은 유지됨)
@@ -1229,14 +1229,14 @@ class RAGRetriever:
                             sqlite_path.touch()
                             os.chmod(sqlite_path, 0o666)
                             print(f"✅ Pre-created SQLite file: {sqlite_path}")
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as create_error:
+                        except Exception as create_error:
                             print(f"⚠️  Failed to pre-create {sqlite_path}: {create_error}")
                     else:
                         # 이미 존재하는 파일도 권한 확인 및 수정
                         try:
                             os.chmod(sqlite_path, 0o666)
                             print(f"✅ Fixed permissions for existing SQLite file: {sqlite_path}")
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chmod_error:
+                        except Exception as chmod_error:
                             print(f"⚠️  Failed to fix permissions for {sqlite_path}: {chmod_error}")
                 
                 time.sleep(0.5)  # 파일 생성 및 권한 설정이 완전히 반영되도록 대기
@@ -1258,12 +1258,12 @@ class RAGRetriever:
                                 try:
                                     os.chmod(sqlite_path, 0o666)
                                     print(f"✅ Fixed permissions after ChromaDB init: {sqlite_path}")
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as post_chmod_error:
+                                except Exception as post_chmod_error:
                                     print(f"⚠️  Failed to fix permissions after init for {sqlite_path}: {post_chmod_error}")
                         self._fix_sqlite_permissions(vectorstore_path_obj)
                         print(f"✅ ChromaDB initialized successfully")
                         break  # 성공하면 루프 탈출
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chroma_init_error:
+                    except Exception as chroma_init_error:
                         error_msg = str(chroma_init_error).lower()
                         if "readonly" in error_msg and chroma_retry < max_chroma_retries - 1:
                             print(f"⚠️  ChromaDB initialization failed (attempt {chroma_retry + 1}/{max_chroma_retries}): {chroma_init_error}")
@@ -1279,10 +1279,10 @@ class RAGRetriever:
                                         if current_path.exists():
                                             os.chmod(current_path, 0o777)
                                         current_path = current_path.parent
-                                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError):
+                                    except:
                                         break
                                 time.sleep(1.0)
-                            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as chmod_error:
+                            except Exception as chmod_error:
                                 print(f"⚠️  Failed to fix directory permissions: {chmod_error}")
                         else:
                             # 마지막 시도이거나 readonly가 아닌 오류인 경우
@@ -1299,7 +1299,7 @@ class RAGRetriever:
             self._initialized = True
             print(f"✅ Vector Store reinitialized at {self.vectorstore_path}")
             return True
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = str(e).lower()
             # 데이터베이스 손상 오류 감지
             if "tenants" in error_msg or "no such table" in error_msg or "database" in error_msg or "already exists" in error_msg:
@@ -1367,10 +1367,10 @@ class RAGRetriever:
                             # 이미 존재하는 문서는 스킵
                             skipped_count += 1
                             continue
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                    except Exception as e:
                         # 필터 검색 실패 시 일단 추가 (안전한 방식)
                         # ChromaDB 버전에 따라 get 메서드가 다를 수 있음
-                        print(f"예외 발생(무시됨): {e}")
+                        pass
                     
                     documents_to_add.append(doc)
                 
@@ -1387,7 +1387,7 @@ class RAGRetriever:
                 print(f"✅ Added {len(documents)} documents to Vector Store")
             
             return True
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = str(e).lower()
             # 데이터베이스 손상 오류 또는 readonly 오류 감지
             if "tenants" in error_msg or "no such table" in error_msg or "database" in error_msg or "readonly" in error_msg:
@@ -1409,7 +1409,7 @@ class RAGRetriever:
                             self.vectorstore.add_documents(documents)
                             print(f"✅ Added {len(documents)} documents to Vector Store (after repair)")
                         return True
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_error:
+                    except Exception as retry_error:
                         print(f"⚠️  Failed to add documents after repair: {retry_error}")
                         return False
                 else:
@@ -1446,7 +1446,7 @@ class RAGRetriever:
                 }
                 for doc in results
             ]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  DDD pattern search failed: {e}")
             return self._fallback_search_ddd_patterns(query, k)
     
@@ -1477,7 +1477,7 @@ class RAGRetriever:
                 }
                 for doc in results
             ]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Project template search failed: {e}")
             return self._fallback_search_project_templates(query, k)
     
@@ -1508,7 +1508,7 @@ class RAGRetriever:
                 }
                 for doc in results
             ]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Vocabulary search failed: {e}")
             return self._fallback_search_vocabulary(query, k)
     
@@ -1539,7 +1539,7 @@ class RAGRetriever:
                 }
                 for doc in results
             ]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  UI pattern search failed: {e}")
             return self._fallback_search_ui_patterns(query, k)
     
@@ -1563,7 +1563,7 @@ class RAGRetriever:
                     })
             
             return results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Fallback DDD search failed: {e}")
             return []
     
@@ -1585,7 +1585,7 @@ class RAGRetriever:
                     })
             
             return results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Fallback project search failed: {e}")
             return []
     
@@ -1607,7 +1607,7 @@ class RAGRetriever:
                     })
             
             return results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Fallback vocabulary search failed: {e}")
             return []
     
@@ -1629,7 +1629,7 @@ class RAGRetriever:
                     })
             
             return results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Fallback UI search failed: {e}")
             return []
     
@@ -1657,7 +1657,7 @@ class RAGRetriever:
                     k=k * 3,  # 필터링을 위해 더 많이 가져옴
                     filter={"type": {"$in": ["database_standard", "api_standard", "terminology_standard"]}}
                 )
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as filter_error:
+            except Exception as filter_error:
                 # 필터 오류 시 필터 없이 검색 후 수동 필터링
                 # ChromaDB 동시성 문제("Failed to get segments")는 일시적이므로 조용히 처리
                 error_msg = str(filter_error).lower()
@@ -1680,7 +1680,7 @@ class RAGRetriever:
                                 doc_type = doc.metadata.get("type", "")
                                 if doc_type in ["database_standard", "api_standard", "terminology_standard"]:
                                     results_with_scores.append((doc, score))
-                        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_error:
+                        except Exception as retry_error:
                             print(f"⚠️  Search still failed after repair: {retry_error}")
                             return self._fallback_search_company_standards(query, k)
                     else:
@@ -1698,7 +1698,7 @@ class RAGRetriever:
                             doc_type = doc.metadata.get("type", "")
                             if doc_type in ["database_standard", "api_standard", "terminology_standard"]:
                                 results_with_scores.append((doc, score))
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as search_error:
+                    except Exception as search_error:
                         error_msg2 = str(search_error).lower()
                         if "no such table" in error_msg2 or "collections" in error_msg2 or "database" in error_msg2:
                             print(f"⚠️  Vector Store database corrupted during search. Attempting to repair...")
@@ -1715,7 +1715,7 @@ class RAGRetriever:
                                         doc_type = doc.metadata.get("type", "")
                                         if doc_type in ["database_standard", "api_standard", "terminology_standard"]:
                                             results_with_scores.append((doc, score))
-                                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_error2:
+                                except Exception as retry_error2:
                                     print(f"⚠️  Search still failed after repair: {retry_error2}")
                                     return self._fallback_search_company_standards(query, k)
                             else:
@@ -1813,7 +1813,7 @@ class RAGRetriever:
             
             # 최종적으로 상위 k개만 반환 (일관성 유지)
             return filtered_results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             # similarity_search_with_score가 지원되지 않는 경우 기본 검색 사용 (점수 필터링 없음)
             print(f"⚠️  similarity_search_with_score 실패, 기본 검색 사용: {e}")
             try:
@@ -1830,7 +1830,7 @@ class RAGRetriever:
                     }
                     for doc in results
                 ]
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e2:
+            except Exception as e2:
                 # 필터가 지원되지 않는 경우 필터 없이 검색
                 try:
                     results = self.vectorstore.similarity_search(query, k=k)
@@ -1843,7 +1843,7 @@ class RAGRetriever:
                         for doc in results
                         if doc.metadata.get("type") in ["database_standard", "api_standard", "terminology_standard"]
                     ]
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e3:
+                except Exception as e3:
                     print(f"⚠️  Company standards search failed: {e3}")
                     return self._fallback_search_company_standards(query, k)
     
@@ -1871,7 +1871,7 @@ class RAGRetriever:
                     k=k * 3,
                     filter={"type": "api_standard"}
                 )
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as filter_error:
+            except Exception as filter_error:
                 # 필터 오류 시 필터 없이 검색 후 수동 필터링
                 # ChromaDB 동시성 문제("Failed to get segments")는 일시적이므로 조용히 처리
                 error_msg = str(filter_error)
@@ -1923,7 +1923,7 @@ class RAGRetriever:
             
             # 최종적으로 상위 k개만 반환 (일관성 유지)
             return filtered_results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             # fallback: 기본 검색 사용
             try:
                 results = self.vectorstore.similarity_search(
@@ -1939,7 +1939,7 @@ class RAGRetriever:
                     }
                     for doc in results
                 ]
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e2:
+            except Exception as e2:
                 print(f"⚠️  API standards search failed: {e2}")
                 return self._fallback_search_api_standards(query, k)
     
@@ -1967,7 +1967,7 @@ class RAGRetriever:
                     k=k * 3,
                     filter={"type": "terminology_standard"}
                 )
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as filter_error:
+            except Exception as filter_error:
                 # 필터 오류 시 필터 없이 검색 후 수동 필터링
                 # ChromaDB 동시성 문제("Failed to get segments")는 일시적이므로 조용히 처리
                 error_msg = str(filter_error)
@@ -2017,7 +2017,7 @@ class RAGRetriever:
             
             # 최종적으로 상위 k개만 반환 (일관성 유지)
             return filtered_results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             # fallback: 기본 검색 사용
             try:
                 results = self.vectorstore.similarity_search(
@@ -2033,7 +2033,7 @@ class RAGRetriever:
                     }
                     for doc in results
                 ]
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e2:
+            except Exception as e2:
                 print(f"⚠️  Terminology standards search failed: {e2}")
                 return self._fallback_search_terminology_standards(query, k)
     
@@ -2058,7 +2058,7 @@ class RAGRetriever:
                     })
             
             return results[:k]
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Fallback company standards search failed: {e}")
             return []
     

@@ -54,8 +54,8 @@ class TraceabilityGenerator:
                     num_key = int(key)
                     if str(num_key) == str(key):
                         normalized_trace_map[num_key] = value
-                except (ValueError, TypeError) as _exc:
-                    LoggingUtil.warning("traceability_generator", f"예외 발생(무시됨): {_exc}")
+                except (ValueError, TypeError):
+                    pass
             return normalized_trace_map
         
         # 배열 형태인 경우 변환
@@ -77,8 +77,8 @@ class TraceabilityGenerator:
                         # 숫자 키로도 저장 (문자열 키와 숫자 키 모두 접근 가능하도록)
                         restored_trace_map[num_key] = value
                         processed_keys.append(num_key)
-                    except (ValueError, TypeError) as _exc:
-                        LoggingUtil.warning("traceability_generator", f"예외 발생(무시됨): {_exc}")
+                    except (ValueError, TypeError):
+                        pass
                 else:
                     # Firebase가 비연속 숫자 키 객체를 배열로 변환한 경우
                     # 배열 인덱스가 원래 키와 일치함 (예: 인덱스 4 = 원래 키 "4")
@@ -161,7 +161,7 @@ class TraceabilityGenerator:
                 'progress': 100
             }
 
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.error("TraceabilityGenerator", f"Failed: {str(e)}")
             return {
                 'draftTraceMap': {'aggregates': [], 'enumerations': [], 'valueObjects': []},
@@ -566,7 +566,7 @@ Please provide traceability mappings for all domain objects listed above."""
                 # 2. validateRefs: 범위 검증 (예외 발생 시 빈 배열로 처리)
                 try:
                     self._validate_refs(domain_object['refs'], raw_requirements)
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                except Exception as e:
                     LoggingUtil.warning("TraceabilityGenerator", 
                         f"{object_type} '{domain_object.get('name', 'unknown')}'의 refs 검증 실패: {str(e)}")
                     domain_object['refs'] = []

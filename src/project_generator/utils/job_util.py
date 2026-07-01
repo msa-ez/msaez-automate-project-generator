@@ -255,10 +255,10 @@ class JobUtil:
                     # shutdown_event가 설정되지 않았으면 계속 대기
                     continue
                     
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+                except Exception as e:
                     LoggingUtil.exception("job_util", f"[Job Worker Error] Job ID {job_id} 업데이트 처리 중 오류", e)
                     
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+        except Exception as e:
             LoggingUtil.exception("job_util", f"[Job Worker Fatal] Job ID {job_id} 작업자 스레드 치명적 오류", e)
         
         finally:
@@ -305,7 +305,7 @@ class JobUtil:
             elif update_request.operation_type == "delete":
                 storage_system.delete_data(path)
 
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+        except Exception as e:
             LoggingUtil.exception("job_util", f"[Firebase Update Error] Job ID {update_request.state['inputs']['jobId']} 업데이트 실행 실패", e)
 
     @staticmethod
@@ -348,7 +348,7 @@ class JobUtil:
             LoggingUtil.warning("job_util", f"[Job Queue Warning] Job ID {job_id} 큐가 가득참 - 업데이트 요청 무시됨")
         except KeyError:
             LoggingUtil.warning("job_util", f"[Job Queue Error] Job ID {job_id} 큐가 존재하지 않음")
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+        except Exception as e:
             LoggingUtil.warning("job_util", f"[Job Queue Error] 큐 추가 실패: {str(e)}")
 
     @staticmethod
@@ -379,7 +379,7 @@ class JobUtil:
                         JobUtil._update_queues[job_id].put(None, timeout=1.0)
                     except queue.Full:
                         LoggingUtil.warning("job_util", f"[Job Cleanup Warning] Job ID {job_id} 큐가 가득참 - 강제 종료")
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+                    except Exception as e:
                         LoggingUtil.exception("job_util", f"[Job Cleanup Error] Job ID {job_id} 종료 신호 전송 실패", e)
                 
                 # 4단계: 스레드 종료 대기
@@ -409,7 +409,7 @@ class JobUtil:
         for job_id in job_ids:
             try:
                 JobUtil.cleanup_job_resources(job_id)
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+            except Exception as e:
                 LoggingUtil.exception("job_util", f"[Job Cleanup Error] Job ID {job_id} 정리 중 오류", e)
         
 
@@ -469,7 +469,7 @@ class JobUtil:
 
             return state
         
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+        except Exception as e:
             LoggingUtil.exception("job_util", f"[State Optimization Error] delete_element_ref_from_state 실행 중 오류", e)
             return state
 
@@ -559,7 +559,7 @@ class JobUtil:
             
             return state
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+        except Exception as e:
             LoggingUtil.exception("job_util", f"[Event Cleanup Error] delete_unused_events 실행 중 오류", e)
             return state
 
@@ -610,6 +610,6 @@ class JobUtil:
 
             return state
         
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError, queue.Empty, queue.Full) as e:
+        except Exception as e:
             LoggingUtil.exception("job_util", f"[State Restoration Error] add_element_ref_to_state 실행 중 오류", e)
             return state

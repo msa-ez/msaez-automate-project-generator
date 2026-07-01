@@ -92,7 +92,7 @@ class StandardIndexer:
                         embedding_function=create_embeddings(model=Config.EMBEDDING_MODEL)
                     )
                     existing_store.delete_collection()
-                except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+                except Exception as e:
                     print(f"⚠️  Failed to clear existing store: {e}")
             
             # Vector Store 생성
@@ -118,7 +118,7 @@ class StandardIndexer:
             
             return True
         
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"\n❌ Indexing failed: {e}")
             import traceback
             traceback.print_exc()
@@ -139,7 +139,7 @@ class StandardIndexer:
             )
             collection = vectorstore._collection
             return collection.count()
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             print(f"⚠️  Failed to get indexed count: {e}")
             return 0
 

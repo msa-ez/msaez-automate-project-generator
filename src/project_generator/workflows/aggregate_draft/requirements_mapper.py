@@ -150,7 +150,7 @@ class RequirementsMappingWorkflow:
                     is_ui_bc=is_ui_bc,
                     initial_reqs=relevant_reqs
                 )
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as augment_err:
+            except Exception as augment_err:
                 LoggingUtil.warning("RequirementsMapper", f"Coverage augmentation failed (continuing with initial result): {augment_err}")
 
             # Frontend와 동일한 순서:
@@ -192,7 +192,7 @@ class RequirementsMappingWorkflow:
                 }]
             }
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = f"Failed to map requirements: {str(e)}"
             LoggingUtil.exception("RequirementsMapper", "Mapping failed", e)
             
@@ -269,7 +269,7 @@ If after honest re-review there really is nothing more, return an empty array.
         try:
             augment_data = self.llm_structured.invoke(augment_prompt)
             extra_reqs = augment_data.get('relevantRequirements', []) or []
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.warning("RequirementsMapper", f"Augment LLM call failed for {bc_name}: {e}")
             return initial_reqs
 

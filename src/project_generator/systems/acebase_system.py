@@ -93,7 +93,7 @@ class AceBaseSystem(StorageSystem):
         if username and password:
             try:
                 self._authenticate(username, password)
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+            except Exception as e:
                 # 자격증명을 명시적으로 받은 상태에서의 실패는 운영상 거의 항상 버그이므로 WARNING 이상으로 노출
                 LoggingUtil.warning("acebase_system", f"AceBase 인증 실패, 토큰 없이 진행 (이후 보호된 경로 접근 시 403 발생 가능): {str(e)}")
                 self.access_token = None
@@ -217,7 +217,7 @@ class AceBaseSystem(StorageSystem):
             LoggingUtil.warning("acebase_system", "401/403 감지 — 재인증 시도")
             self._authenticate(self.username, self.password)
             return self.access_token is not None
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as reauth_err:
+        except Exception as reauth_err:
             LoggingUtil.warning("acebase_system", f"재인증 실패: {reauth_err}")
             return False
 
@@ -246,7 +246,7 @@ class AceBaseSystem(StorageSystem):
             try:
                 time.sleep(2.0)
                 return operation_func(*args, **kwargs)
-            except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_err:
+            except Exception as retry_err:
                 LoggingUtil.exception("acebase_system", f"{operation_name} application-level retry 후에도 실패", retry_err)
                 return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
         except requests.exceptions.HTTPError as e:
@@ -266,12 +266,12 @@ class AceBaseSystem(StorageSystem):
                             return None
                         LoggingUtil.exception("acebase_system", f"{operation_name} 재인증 후 retry 도 실패", retry_err)
                         return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
-                    except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as retry_err:
+                    except Exception as retry_err:
                         LoggingUtil.exception("acebase_system", f"{operation_name} 재인증 후 retry 도 실패", retry_err)
                         return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
             LoggingUtil.exception("acebase_system", f"{operation_name} 실패", e)
             return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.exception("acebase_system", f"{operation_name} 실패", e)
             return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
     
@@ -294,7 +294,7 @@ class AceBaseSystem(StorageSystem):
                 partial(sync_func, *args, **kwargs)
             )
             return result
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.exception("acebase_system", f"비동기 {operation_name} 실패", e)
             return False if operation_name.endswith(('업로드', '업데이트', '삭제', '시작', '중단')) else None
     
@@ -315,7 +315,7 @@ class AceBaseSystem(StorageSystem):
                     loop.run_until_complete(async_func(*args, **kwargs))
             except RuntimeError:
                 asyncio.run(async_func(*args, **kwargs))
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.exception("acebase_system", f"Fire and Forget 실행 실패", e)
     
     # =============================================================================
@@ -667,7 +667,7 @@ class AceBaseSystem(StorageSystem):
                 self.set_data(path, updated_data)
             
             return updated_data
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             LoggingUtil.exception("acebase_system", "트랜잭션 실패", e)
             return None
     

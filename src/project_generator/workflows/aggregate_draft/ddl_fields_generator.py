@@ -137,7 +137,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = f"Field assignment failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -264,7 +264,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = f"Validation failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -287,7 +287,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = f"Output finalization failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -477,7 +477,7 @@ Now please assign the DDL fields to the appropriate aggregates based on the prov
                 "timestamp": final_state.get("timestamp", "")
             }
             
-        except (OSError, ValueError, TypeError, LookupError, AttributeError, RuntimeError, ImportError, ArithmeticError, AssertionError, StopIteration, StopAsyncIteration, BufferError) as e:
+        except Exception as e:
             error_msg = f"DDL fields assignment failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             raise Exception(error_msg)

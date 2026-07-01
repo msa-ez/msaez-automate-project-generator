@@ -362,7 +362,7 @@ class AggregateDraftGenerator:
                 }]
             }
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.exception("AggregateDraftGenerator", f"Failed to generate drafts for {bc_name}", e)
             return {
                 "options": [],

@@ -2688,7 +2688,7 @@ class AggregateDraftStandardTransformer:
                 try:
                     response = self.llm_structured.invoke(prompt)
                     break
-                except CATCHABLE_EXCEPTIONS as e:
+                except Exception as e:
                     retry_count += 1
                     error_msg = str(e)
                     
@@ -2861,7 +2861,7 @@ class AggregateDraftStandardTransformer:
             
             return merged_item
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             import time
             elapsed_time = time.time() - start_time if 'start_time' in locals() else 0
             LoggingUtil.error("StandardTransformer", 
@@ -3834,7 +3834,7 @@ class AggregateDraftStandardTransformer:
                                        f"   첫 번째 structure 항목 키: {list(structure[0].keys())}")
             
             return merged_options
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("StandardTransformer", f"❌ LLM 호출 실패: {e}")
             import traceback
             LoggingUtil.error("StandardTransformer", traceback.format_exc())
@@ -5657,7 +5657,7 @@ If no match or inappropriate match is found, keep the original unchanged.
                 try:
                     response = llm_structured.invoke(prompt)
                     break
-                except CATCHABLE_EXCEPTIONS as e:
+                except Exception as e:
                     retry_count += 1
                     error_msg = str(e)
                     
@@ -5696,7 +5696,7 @@ If no match or inappropriate match is found, keep the original unchanged.
             
             return result_structure
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("StandardTransformer", 
                             f"❌ [필드 전용] LLM 호출 실패: {e}")
             import traceback
@@ -5903,7 +5903,7 @@ Return JSON with the EXACT same structure as input, ONLY changing `fieldName` va
                 try:
                     response = llm_structured.invoke(prompt)
                     break
-                except CATCHABLE_EXCEPTIONS as e:
+                except Exception as e:
                     retry_count += 1
                     error_msg = str(e)
                     
@@ -5943,7 +5943,7 @@ Return JSON with the EXACT same structure as input, ONLY changing `fieldName` va
             
             return result_structure
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("StandardTransformer", 
                             f"❌ [Enum/VO 전용] LLM 호출 실패: {e}")
             import traceback

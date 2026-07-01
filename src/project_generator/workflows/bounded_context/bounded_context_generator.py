@@ -297,7 +297,7 @@ class BoundedContextWorkflow:
                 "progress": 50,
                 "logs": state["logs"] + [{"timestamp": datetime.now().isoformat(), "message": "BC 생성 완료"}]
             }
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.exception("BoundedContextWorkflow", "BC 생성 중 오류 발생", e)
             return {
                 "thoughts": "",

@@ -84,7 +84,7 @@ class QueryExpander:
                            f"🔍 쿼리 확장: '{base_keyword}' → '{expanded_query[:100]}...' ({category})")
             
             return expanded_query
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.warning("QueryExpander", 
                               f"⚠️  쿼리 확장 실패: {e}, 원본 키워드 사용: '{base_keyword}'")
             return base_keyword

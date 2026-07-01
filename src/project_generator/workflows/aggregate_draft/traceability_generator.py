@@ -162,7 +162,7 @@ class TraceabilityGenerator:
                 'progress': 100
             }
 
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("TraceabilityGenerator", f"Failed: {str(e)}")
             return {
                 'draftTraceMap': {'aggregates': [], 'enumerations': [], 'valueObjects': []},

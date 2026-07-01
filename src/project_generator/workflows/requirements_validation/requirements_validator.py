@@ -84,7 +84,7 @@ class RequirementsValidator:
                 'progress': 100
             }
 
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("RequirementsValidator", f"Failed: {str(e)}")
             return {
                 'type': 'ANALYSIS_RESULT',

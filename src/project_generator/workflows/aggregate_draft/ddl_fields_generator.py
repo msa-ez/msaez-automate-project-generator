@@ -138,7 +138,7 @@ class DDLFieldsGenerator:
                 "timestamp": datetime.now().isoformat()
             }
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             error_msg = f"Field assignment failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             return {
@@ -478,7 +478,7 @@ Now please assign the DDL fields to the appropriate aggregates based on the prov
                 "timestamp": final_state.get("timestamp", "")
             }
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             error_msg = f"DDL fields assignment failed: {str(e)}"
             LoggingUtil.error("DDLFieldsGenerator", error_msg)
             raise RuntimeError(error_msg)

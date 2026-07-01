@@ -524,7 +524,7 @@ CRITICAL INSTRUCTIONS:
                     "progress": 80
                 }
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             error_msg = f"Failed to parse JSON response: {str(e)}"
             LoggingUtil.info(state["job_id"], error_msg)
             return {
@@ -534,7 +534,7 @@ CRITICAL INSTRUCTIONS:
                 "logs": [error_msg]
             }
             
-    except CATCHABLE_EXCEPTIONS as e:
+    except Exception as e:
         error_msg = f"Error in extract_commands_and_readmodels: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {

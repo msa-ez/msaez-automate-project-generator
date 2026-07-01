@@ -455,7 +455,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
             })
             state['progress'] = 90
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("PreviewFieldsGenerator", f"Error generating fields: {str(e)}")
             state['isFailed'] = True
             state['logs'].append({

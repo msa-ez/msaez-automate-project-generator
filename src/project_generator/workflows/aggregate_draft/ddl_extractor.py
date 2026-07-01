@@ -93,7 +93,7 @@ class DDLExtractor:
                 'progress': 100
             }
 
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.error("DDLExtractor", f"Failed: {str(e)}")
             return {
                 'ddlFieldRefs': [],

@@ -193,7 +193,7 @@ class RequirementsMappingWorkflow:
                 }]
             }
             
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             error_msg = f"Failed to map requirements: {str(e)}"
             LoggingUtil.exception("RequirementsMapper", "Mapping failed", e)
             
@@ -270,7 +270,7 @@ If after honest re-review there really is nothing more, return an empty array.
         try:
             augment_data = self.llm_structured.invoke(augment_prompt)
             extra_reqs = augment_data.get('relevantRequirements', []) or []
-        except CATCHABLE_EXCEPTIONS as e:
+        except Exception as e:
             LoggingUtil.warning("RequirementsMapper", f"Augment LLM call failed for {bc_name}: {e}")
             return initial_reqs
 

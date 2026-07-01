@@ -315,7 +315,7 @@ RULES:
                 "logs": [error_msg]
             }
             
-    except CATCHABLE_EXCEPTIONS as e:
+    except Exception as e:
         error_msg = f"Error in generate_sitemap: {str(e)}"
         LoggingUtil.info(state["job_id"], error_msg)
         return {

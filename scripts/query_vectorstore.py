@@ -142,7 +142,7 @@ def search_documents(query: str, k: int = 5):
                     structured = json.loads(metadata.get('structured_data'))
                     print(f"    구조화된 데이터:")
                     print(f"    {json.dumps(structured, ensure_ascii=False, indent=4)}")
-                except:
+                except (ValueError, TypeError):
                     pass
         
     except Exception as e:

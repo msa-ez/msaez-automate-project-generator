@@ -151,7 +151,7 @@ class RAGRetriever:
         # 프로세스 시작 시 umask를 0으로 설정하여 모든 새 파일이 쓰기 가능하도록 함
         # 이는 ChromaDB가 SQLite 파일을 생성할 때 readonly로 생성되는 문제를 방지
         try:
-            os.umask(0)
+            os.umask(0o007)
         except CATCHABLE_EXCEPTIONS:
             pass
         
@@ -196,16 +196,16 @@ class RAGRetriever:
             if path_obj.exists():
                 current_mode = os.stat(path_obj).st_mode
                 if not (current_mode & stat.S_IWRITE):
-                    os.chmod(path_obj, 0o777)
+                    os.chmod(path_obj, 0o770)
             
             # 모든 하위 파일 및 디렉토리 권한 수정
             for root, dirs, files in os.walk(path_obj):
                 try:
                     # 디렉토리 권한
-                    os.chmod(root, 0o777)
+                    os.chmod(root, 0o770)
                     for d in dirs:
                         dir_path = os.path.join(root, d)
-                        os.chmod(dir_path, 0o777)
+                        os.chmod(dir_path, 0o770)
                     
                     # 파일 권한 (특히 SQLite 파일)
                     for f in files:
@@ -213,13 +213,13 @@ class RAGRetriever:
                         # SQLite 파일은 쓰기 가능해야 함 (.sqlite3, .wal, .shm 포함)
                         if f.endswith('.sqlite') or f.endswith('.db') or f.endswith('.sqlite3') or f.endswith('.wal') or f.endswith('.shm'):
                             try:
-                                os.chmod(file_path, 0o666)
+                                os.chmod(file_path, 0o660)
                                 print(f"✅ Fixed permissions for SQLite file: {file_path}")
                             except CATCHABLE_EXCEPTIONS as e:
                                 print(f"⚠️  Failed to fix permissions for {file_path}: {e}")
                         else:
                             try:
-                                os.chmod(file_path, 0o666)
+                                os.chmod(file_path, 0o660)
                             except CATCHABLE_EXCEPTIONS:
                                 pass
                 except CATCHABLE_EXCEPTIONS as e:
@@ -270,13 +270,13 @@ class RAGRetriever:
                     try:
                         import stat
                         print(f"🔧 Setting directory permissions before loading ChromaDB...")
-                        os.chmod(vectorstore_path_obj, 0o777)
+                        os.chmod(vectorstore_path_obj, 0o770)
                         # 부모 디렉토리들도 권한 설정
                         current_path = vectorstore_path_obj
                         while current_path != current_path.parent:
                             try:
                                 if current_path.exists():
-                                    os.chmod(current_path, 0o777)
+                                    os.chmod(current_path, 0o770)
                                 current_path = current_path.parent
                             except CATCHABLE_EXCEPTIONS:
                                 break
@@ -289,7 +289,7 @@ class RAGRetriever:
                     # 하지만 tenants 테이블 문제가 있으면 복구 로직으로 넘어감
                     # 중요: umask를 0으로 설정하고 ChromaDB가 SQLite 파일을 생성할 때까지 유지
                     max_chroma_retries = 3
-                    original_umask = os.umask(0)  # ChromaDB 초기화 전에 umask 설정
+                    original_umask = os.umask(0o007)  # ChromaDB 초기화 전에 umask 설정
                     try:
                         for chroma_retry in range(max_chroma_retries):
                             try:
@@ -313,13 +313,13 @@ class RAGRetriever:
                                     self._fix_sqlite_permissions(vectorstore_path_obj)
                                     # 디렉토리 권한 다시 설정
                                     try:
-                                        os.chmod(vectorstore_path_obj, 0o777)
+                                        os.chmod(vectorstore_path_obj, 0o770)
                                         # 부모 디렉토리들도 권한 설정
                                         current_path = vectorstore_path_obj
                                         while current_path != current_path.parent:
                                             try:
                                                 if current_path.exists():
-                                                    os.chmod(current_path, 0o777)
+                                                    os.chmod(current_path, 0o770)
                                                 current_path = current_path.parent
                                             except CATCHABLE_EXCEPTIONS:
                                                 break
@@ -391,15 +391,15 @@ class RAGRetriever:
                 try:
                     import stat
                     # umask를 0으로 설정하고 디렉토리 생성
-                    original_umask = os.umask(0)
+                    original_umask = os.umask(0o007)
                     try:
-                        os.chmod(vectorstore_path_obj, 0o777)
+                        os.chmod(vectorstore_path_obj, 0o770)
                         # 부모 디렉토리들도 권한 설정
                         current_path = vectorstore_path_obj
                         while current_path != current_path.parent:
                             try:
                                 if current_path.exists():
-                                    os.chmod(current_path, 0o777)
+                                    os.chmod(current_path, 0o770)
                                 current_path = current_path.parent
                             except CATCHABLE_EXCEPTIONS:
                                 break
@@ -435,7 +435,7 @@ class RAGRetriever:
                 # ChromaDB 초기화 (재시도 로직 포함)
                 # 중요: umask를 0으로 설정하고 ChromaDB가 SQLite 파일을 생성할 때까지 유지
                 max_chroma_retries = 3
-                original_umask = os.umask(0)  # ChromaDB 초기화 전에 umask 설정
+                original_umask = os.umask(0o007)  # ChromaDB 초기화 전에 umask 설정
                 try:
                     for chroma_retry in range(max_chroma_retries):
                         try:
@@ -460,13 +460,13 @@ class RAGRetriever:
                                 self._fix_sqlite_permissions(vectorstore_path_obj)
                                 # 디렉토리 권한 다시 설정
                                 try:
-                                    os.chmod(vectorstore_path_obj, 0o777)
+                                    os.chmod(vectorstore_path_obj, 0o770)
                                     # 부모 디렉토리들도 권한 설정
                                     current_path = vectorstore_path_obj
                                     while current_path != current_path.parent:
                                         try:
                                             if current_path.exists():
-                                                os.chmod(current_path, 0o777)
+                                                os.chmod(current_path, 0o770)
                                             current_path = current_path.parent
                                         except CATCHABLE_EXCEPTIONS:
                                             break
@@ -609,17 +609,17 @@ class RAGRetriever:
             # 디렉토리 재생성 (권한을 즉시 설정)
             # Kubernetes PVC에서 umask가 다를 수 있으므로 명시적으로 권한 설정
             import stat
-            original_umask = os.umask(0)  # umask를 0으로 설정하여 모든 권한 허용
+            original_umask = os.umask(0o007)  # umask를 0으로 설정하여 모든 권한 허용
             try:
                 vectorstore_path_obj.mkdir(parents=True, exist_ok=True)
                 # 생성 직후 즉시 권한 설정
-                os.chmod(vectorstore_path_obj, 0o777)
+                os.chmod(vectorstore_path_obj, 0o770)
                 # 부모 디렉토리들도 권한 설정
                 current_path = vectorstore_path_obj
                 while current_path != current_path.parent:
                     try:
                         if current_path.exists():
-                            os.chmod(current_path, 0o777)
+                            os.chmod(current_path, 0o770)
                         current_path = current_path.parent
                     except CATCHABLE_EXCEPTIONS:
                         break
@@ -635,16 +635,16 @@ class RAGRetriever:
                 current_mode = os.stat(vectorstore_path_obj).st_mode
                 if not (current_mode & stat.S_IWRITE):
                     print(f"⚠️  Directory not writable, fixing permissions...")
-                    os.chmod(vectorstore_path_obj, 0o777)
+                    os.chmod(vectorstore_path_obj, 0o770)
                 
                 # 하위 디렉토리와 파일도 쓰기 가능하도록 설정
                 for root, dirs, files in os.walk(vectorstore_path_obj):
                     try:
-                        os.chmod(root, 0o777)
+                        os.chmod(root, 0o770)
                         for d in dirs:
-                            os.chmod(os.path.join(root, d), 0o777)
+                            os.chmod(os.path.join(root, d), 0o770)
                         for f in files:
-                            os.chmod(os.path.join(root, f), 0o666)
+                            os.chmod(os.path.join(root, f), 0o660)
                     except CATCHABLE_EXCEPTIONS:
                         pass
                 time.sleep(1.0)
@@ -787,13 +787,13 @@ class RAGRetriever:
                 import stat
                 # 디렉토리 권한 강제 설정 (ChromaDB가 SQLite 파일을 생성하기 전에)
                 print(f"🔧 Setting directory permissions before ChromaDB initialization...")
-                os.chmod(vectorstore_path_obj, 0o777)
+                os.chmod(vectorstore_path_obj, 0o770)
                 # 부모 디렉토리들도 권한 설정
                 current_path = vectorstore_path_obj
                 while current_path != current_path.parent:
                     try:
                         if current_path.exists():
-                            os.chmod(current_path, 0o777)
+                            os.chmod(current_path, 0o770)
                         current_path = current_path.parent
                     except CATCHABLE_EXCEPTIONS:
                         break
@@ -803,9 +803,9 @@ class RAGRetriever:
                 if not (current_mode & stat.S_IWRITE):
                     print(f"⚠️  Directory still not writable after chmod, attempting umask fix...")
                     # umask를 0으로 설정하고 다시 시도
-                    original_umask = os.umask(0)
+                    original_umask = os.umask(0o007)
                     try:
-                        os.chmod(vectorstore_path_obj, 0o777)
+                        os.chmod(vectorstore_path_obj, 0o770)
                     finally:
                         os.umask(original_umask)
                 
@@ -824,7 +824,7 @@ class RAGRetriever:
             # 새로운 Vector Store 생성 (재시도 로직 포함)
             # 중요: umask를 0으로 설정하고 ChromaDB가 SQLite 파일을 생성할 때까지 유지
             max_chroma_retries = 3
-            original_umask = os.umask(0)  # ChromaDB 초기화 전에 umask 설정
+            original_umask = os.umask(0o007)  # ChromaDB 초기화 전에 umask 설정
             try:
                 # ChromaDB 초기화 전에 미리 SQLite 파일을 생성하고 권한 설정
                 # ChromaDB의 Rust 바인딩이 파일을 생성할 때 readonly로 생성되는 문제를 방지하기 위해
@@ -839,13 +839,13 @@ class RAGRetriever:
                 # 디렉토리와 부모 디렉토리 권한 강제 설정
                 for sqlite_path in potential_sqlite_files:
                     if sqlite_path.parent.exists():
-                        os.chmod(sqlite_path.parent, 0o777)
+                        os.chmod(sqlite_path.parent, 0o770)
                     # 부모 디렉토리들도 권한 설정
                     current_path = sqlite_path.parent
                     while current_path != current_path.parent:
                         try:
                             if current_path.exists():
-                                os.chmod(current_path, 0o777)
+                                os.chmod(current_path, 0o770)
                             current_path = current_path.parent
                         except CATCHABLE_EXCEPTIONS:
                             break
@@ -854,14 +854,14 @@ class RAGRetriever:
                     if not sqlite_path.exists():
                         try:
                             sqlite_path.touch()
-                            os.chmod(sqlite_path, 0o666)
+                            os.chmod(sqlite_path, 0o660)
                             print(f"✅ Pre-created SQLite file: {sqlite_path}")
                         except CATCHABLE_EXCEPTIONS as create_error:
                             print(f"⚠️  Failed to pre-create {sqlite_path}: {create_error}")
                     else:
                         # 이미 존재하는 파일도 권한 확인 및 수정
                         try:
-                            os.chmod(sqlite_path, 0o666)
+                            os.chmod(sqlite_path, 0o660)
                             print(f"✅ Fixed permissions for existing SQLite file: {sqlite_path}")
                         except CATCHABLE_EXCEPTIONS as chmod_error:
                             print(f"⚠️  Failed to fix permissions for {sqlite_path}: {chmod_error}")
@@ -893,7 +893,7 @@ class RAGRetriever:
                         for sqlite_path in potential_sqlite_files:
                             if sqlite_path.exists():
                                 try:
-                                    os.chmod(sqlite_path, 0o666)
+                                    os.chmod(sqlite_path, 0o660)
                                     print(f"✅ Fixed permissions after ChromaDB init: {sqlite_path}")
                                 except CATCHABLE_EXCEPTIONS as post_chmod_error:
                                     print(f"⚠️  Failed to fix permissions after init for {sqlite_path}: {post_chmod_error}")
@@ -908,13 +908,13 @@ class RAGRetriever:
                             self._fix_sqlite_permissions(vectorstore_path_obj)
                             # 디렉토리 권한 다시 설정
                             try:
-                                os.chmod(vectorstore_path_obj, 0o777)
+                                os.chmod(vectorstore_path_obj, 0o770)
                                 # 부모 디렉토리들도 권한 설정
                                 current_path = vectorstore_path_obj
                                 while current_path != current_path.parent:
                                     try:
                                         if current_path.exists():
-                                            os.chmod(current_path, 0o777)
+                                            os.chmod(current_path, 0o770)
                                         current_path = current_path.parent
                                     except CATCHABLE_EXCEPTIONS:
                                         break
@@ -1035,17 +1035,17 @@ class RAGRetriever:
             # 디렉토리 재생성 (권한을 즉시 설정)
             # Kubernetes PVC에서 umask가 다를 수 있으므로 명시적으로 권한 설정
             import stat
-            original_umask = os.umask(0)  # umask를 0으로 설정하여 모든 권한 허용
+            original_umask = os.umask(0o007)  # umask를 0으로 설정하여 모든 권한 허용
             try:
                 vectorstore_path_obj.mkdir(parents=True, exist_ok=True)
                 # 생성 직후 즉시 권한 설정
-                os.chmod(vectorstore_path_obj, 0o777)
+                os.chmod(vectorstore_path_obj, 0o770)
                 # 부모 디렉토리들도 권한 설정
                 current_path = vectorstore_path_obj
                 while current_path != current_path.parent:
                     try:
                         if current_path.exists():
-                            os.chmod(current_path, 0o777)
+                            os.chmod(current_path, 0o770)
                         current_path = current_path.parent
                     except CATCHABLE_EXCEPTIONS:
                         break
@@ -1061,16 +1061,16 @@ class RAGRetriever:
                 current_mode = os.stat(vectorstore_path_obj).st_mode
                 if not (current_mode & stat.S_IWRITE):
                     print(f"⚠️  Directory not writable, fixing permissions...")
-                    os.chmod(vectorstore_path_obj, 0o777)
+                    os.chmod(vectorstore_path_obj, 0o770)
                 
                 # 하위 디렉토리와 파일도 쓰기 가능하도록 설정
                 for root, dirs, files in os.walk(vectorstore_path_obj):
                     try:
-                        os.chmod(root, 0o777)
+                        os.chmod(root, 0o770)
                         for d in dirs:
-                            os.chmod(os.path.join(root, d), 0o777)
+                            os.chmod(os.path.join(root, d), 0o770)
                         for f in files:
-                            os.chmod(os.path.join(root, f), 0o666)
+                            os.chmod(os.path.join(root, f), 0o660)
                     except CATCHABLE_EXCEPTIONS:
                         pass
                 time.sleep(1.0)
@@ -1169,15 +1169,15 @@ class RAGRetriever:
             try:
                 print(f"🔧 Setting directory permissions before ChromaDB initialization...")
                 # umask를 0으로 설정하고 디렉토리 권한 설정
-                original_umask = os.umask(0)
+                original_umask = os.umask(0o007)
                 try:
-                    os.chmod(vectorstore_path_obj, 0o777)
+                    os.chmod(vectorstore_path_obj, 0o770)
                     # 부모 디렉토리들도 권한 설정
                     current_path = vectorstore_path_obj
                     while current_path != current_path.parent:
                         try:
                             if current_path.exists():
-                                os.chmod(current_path, 0o777)
+                                os.chmod(current_path, 0o770)
                             current_path = current_path.parent
                         except CATCHABLE_EXCEPTIONS:
                             break
@@ -1194,7 +1194,7 @@ class RAGRetriever:
             # 중요: umask를 0으로 설정하고 ChromaDB가 SQLite 파일을 생성할 때까지 유지
             # 환경 변수도 설정하여 Rust 바인딩에 영향을 줌
             max_chroma_retries = 3
-            original_umask = os.umask(0)  # ChromaDB 초기화 전에 umask 설정
+            original_umask = os.umask(0o007)  # ChromaDB 초기화 전에 umask 설정
             original_umask_env = os.environ.get('UMASK')
             try:
                 # 환경 변수로 umask 설정 (Rust 바인딩에 영향을 줄 수 있음)
@@ -1213,13 +1213,13 @@ class RAGRetriever:
                 # 디렉토리와 부모 디렉토리 권한 강제 설정
                 for sqlite_path in potential_sqlite_files:
                     if sqlite_path.parent.exists():
-                        os.chmod(sqlite_path.parent, 0o777)
+                        os.chmod(sqlite_path.parent, 0o770)
                     # 부모 디렉토리들도 권한 설정
                     current_path = sqlite_path.parent
                     while current_path != current_path.parent:
                         try:
                             if current_path.exists():
-                                os.chmod(current_path, 0o777)
+                                os.chmod(current_path, 0o770)
                             current_path = current_path.parent
                         except CATCHABLE_EXCEPTIONS:
                             break
@@ -1228,14 +1228,14 @@ class RAGRetriever:
                     if not sqlite_path.exists():
                         try:
                             sqlite_path.touch()
-                            os.chmod(sqlite_path, 0o666)
+                            os.chmod(sqlite_path, 0o660)
                             print(f"✅ Pre-created SQLite file: {sqlite_path}")
                         except CATCHABLE_EXCEPTIONS as create_error:
                             print(f"⚠️  Failed to pre-create {sqlite_path}: {create_error}")
                     else:
                         # 이미 존재하는 파일도 권한 확인 및 수정
                         try:
-                            os.chmod(sqlite_path, 0o666)
+                            os.chmod(sqlite_path, 0o660)
                             print(f"✅ Fixed permissions for existing SQLite file: {sqlite_path}")
                         except CATCHABLE_EXCEPTIONS as chmod_error:
                             print(f"⚠️  Failed to fix permissions for {sqlite_path}: {chmod_error}")
@@ -1257,7 +1257,7 @@ class RAGRetriever:
                         for sqlite_path in potential_sqlite_files:
                             if sqlite_path.exists():
                                 try:
-                                    os.chmod(sqlite_path, 0o666)
+                                    os.chmod(sqlite_path, 0o660)
                                     print(f"✅ Fixed permissions after ChromaDB init: {sqlite_path}")
                                 except CATCHABLE_EXCEPTIONS as post_chmod_error:
                                     print(f"⚠️  Failed to fix permissions after init for {sqlite_path}: {post_chmod_error}")
@@ -1272,13 +1272,13 @@ class RAGRetriever:
                             self._fix_sqlite_permissions(vectorstore_path_obj)
                             # 디렉토리 권한 다시 설정
                             try:
-                                os.chmod(vectorstore_path_obj, 0o777)
+                                os.chmod(vectorstore_path_obj, 0o770)
                                 # 부모 디렉토리들도 권한 설정
                                 current_path = vectorstore_path_obj
                                 while current_path != current_path.parent:
                                     try:
                                         if current_path.exists():
-                                            os.chmod(current_path, 0o777)
+                                            os.chmod(current_path, 0o770)
                                         current_path = current_path.parent
                                     except CATCHABLE_EXCEPTIONS:
                                         break

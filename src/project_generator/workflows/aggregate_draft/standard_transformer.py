@@ -208,12 +208,12 @@ class AggregateDraftStandardTransformer:
             
             # 디렉토리 생성 (umask를 0으로 설정하여 쓰기 가능한 권한으로 생성)
             # initContainer에서 이미 부모 디렉토리 권한이 설정되어 있지만, 추가 보장
-            original_umask = os.umask(0)
+            original_umask = os.umask(0o007)
             try:
                 user_standards_dir.mkdir(parents=True, exist_ok=True)
                 # 생성된 디렉토리에 쓰기 권한 부여 시도 (실패해도 계속 진행)
                 try:
-                    os.chmod(user_standards_dir, 0o777)
+                    os.chmod(user_standards_dir, 0o770)
                 except (OSError, PermissionError):
                     pass  # 권한 설정 실패해도 계속 진행 (initContainer에서 이미 설정됨)
             finally:
@@ -249,14 +249,14 @@ class AggregateDraftStandardTransformer:
                         user_standards_dir.mkdir(parents=True, exist_ok=True)
                     # 디렉토리 쓰기 권한 확인 및 수정 시도
                     try:
-                        os.chmod(user_standards_dir, 0o777)
+                        os.chmod(user_standards_dir, 0o770)
                     except (OSError, PermissionError):
                         pass  # 권한 설정 실패해도 계속 진행
                     
                     blob.download_to_filename(str(local_file_path))
                     # 다운로드된 파일에 쓰기 권한 부여 (non-root 사용자를 위해)
                     try:
-                        os.chmod(local_file_path, 0o666)
+                        os.chmod(local_file_path, 0o660)
                     except (OSError, PermissionError):
                         pass  # 권한 설정 실패해도 계속 진행
                     downloaded_files.append(file_name)

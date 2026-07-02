@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 import logging
 import os
+import uuid
 from pathlib import Path
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -76,15 +77,22 @@ def upload_standard_documents():
             if file.filename == '':
                 continue
             
-            # 파일명 보안 처리
-            filename = secure_filename(file.filename)
-            file_ext = Path(filename).suffix.lower()
-            
-            # 파일 형식 검증
+            # 파일 형식 검증 — 원본 파일명 기준으로 확장자 판정
+            # (secure_filename 은 한글 등 비ASCII basename 을 제거하며 확장자까지 잃을 수 있으므로,
+            #  형식 판정은 원본 파일명으로 수행한다)
+            original_name = file.filename or ''
+            file_ext = Path(original_name).suffix.lower()
             if file_ext not in allowed_extensions:
-                errors.append(f'{filename}: 지원하지 않는 파일 형식입니다. (.xlsx, .xls, .pptx, .ppt만 가능)')
+                errors.append(f'{original_name}: 지원하지 않는 파일 형식입니다. (.xlsx, .xls, .pptx, .ppt만 가능)')
                 continue
-            
+
+            # 파일명 보안 처리 — 확장자를 보존하고, basename 이 전부 비ASCII(예: 한글)라
+            # secure_filename 결과가 비면 안전한 대체명을 사용한다
+            safe_stem = secure_filename(Path(original_name).stem)
+            if not safe_stem:
+                safe_stem = f"standard-document-{uuid.uuid4().hex[:8]}"
+            filename = f"{safe_stem}{file_ext}"
+
             # 파일 저장
             file_path = user_standards_dir / filename
             try:

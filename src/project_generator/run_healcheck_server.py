@@ -1,7 +1,11 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 import logging
 import os
 import uuid
+import shutil
+import tempfile
+import subprocess
+from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -233,6 +237,83 @@ def delete_standard_document():
     except CATCHABLE_EXCEPTIONS as e:
         logging.error(f'Standard documents delete error: {e}', exc_info=True)
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
+
+DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+
+@app.route('/api/documents/normalize-docx', methods=['POST', 'OPTIONS'])
+def normalize_docx():
+    """프론트(docx+jszip)에서 만든 docx 를 LibreOffice 로 재직렬화하여
+    정본(canonical) OOXML 패키지로 반환한다.
+
+    프론트 산출물은 [Content_Types].xml 이 첫 엔트리가 아니고 디렉토리 엔트리가 있는 등
+    비정본 zip 구조라, ECM 등 엄격한 콘텐츠 검출기가 application/zip 으로 판정해 등록을
+    거부한다. soffice 로 열었다 다시 저장하면(=Word 저장과 동일) Office 표준 패키지가 되어
+    검출기가 Word 문서로 인식한다.
+    """
+    if request.method == 'OPTIONS':
+        # CORS preflight
+        return '', 200
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'file is required'}), 400
+    upload = request.files['file']
+    if not upload or upload.filename == '':
+        return jsonify({'error': 'empty file'}), 400
+
+    # 다운로드 파일명(한글 포함 가능) — 없으면 기본값
+    download_name = request.form.get('filename') or 'document.docx'
+    if not download_name.lower().endswith('.docx'):
+        download_name += '.docx'
+
+    tmpdir = tempfile.mkdtemp(prefix='docxnorm_')
+    try:
+        in_path = os.path.join(tmpdir, 'input.docx')
+        out_dir = os.path.join(tmpdir, 'out')
+        os.makedirs(out_dir, exist_ok=True)
+        upload.save(in_path)
+
+        # non-root(appuser) 로 실행되므로 soffice 프로필/홈을 쓰기 가능한 임시경로로 격리한다.
+        # UserInstallation 을 호출마다 분리하면 soffice 싱글톤 락 없이 동시 호출도 안전.
+        env = dict(os.environ)
+        env['HOME'] = tmpdir
+        profile_uri = 'file://' + os.path.join(tmpdir, 'lo_profile')
+        cmd = [
+            'soffice', '--headless', '--norestore', '--nolockcheck', '--nodefault',
+            '-env:UserInstallation=' + profile_uri,
+            '--convert-to', 'docx:MS Word 2007 XML',
+            '--outdir', out_dir, in_path,
+        ]
+        try:
+            proc = subprocess.run(cmd, env=env, capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            logging.error('normalize-docx: soffice timeout')
+            return jsonify({'error': 'docx 변환 시간 초과'}), 504
+
+        out_path = os.path.join(out_dir, 'input.docx')
+        if proc.returncode != 0 or not os.path.exists(out_path):
+            stderr = proc.stderr.decode('utf-8', 'replace')[:800] if proc.stderr else ''
+            logging.error('normalize-docx: soffice failed rc=%s stderr=%s', proc.returncode, stderr)
+            return jsonify({'error': 'docx 변환 실패', 'detail': stderr}), 500
+
+        # 임시 디렉토리를 finally 에서 지우므로, 스트리밍이 아니라 메모리로 읽어서 반환한다.
+        with open(out_path, 'rb') as f:
+            data = f.read()
+        if not data:
+            return jsonify({'error': '변환 결과가 비어있습니다.'}), 500
+
+        return send_file(
+            BytesIO(data),
+            mimetype=DOCX_MIME,
+            as_attachment=True,
+            download_name=download_name,
+        )
+    except CATCHABLE_EXCEPTIONS as e:
+        logging.error('normalize-docx error: %s', e, exc_info=True)
+        return jsonify({'error': f'서버 오류: {str(e)}'}), 500
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 def run_healcheck_server():
     """Flask 서버를 별도 스레드에서 실행"""

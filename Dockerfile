@@ -3,11 +3,17 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # 시스템 의존성 설치
+#  - libreoffice-writer: /api/documents/normalize-docx 에서 docx 를 정본(OOXML)으로 재직렬화.
+#    (프론트 docx+jszip 산출물이 ECM 등 엄격한 검출기에서 zip 으로 거부되는 문제 해결)
+#    CI(인터넷 가능)에서 설치·이미지에 baked → 폐쇄망은 이미지 pull 만 하므로 빌드 문제 없음.
+#  - fonts-nanum: 한글 문서 변환 시 폰트 대체/메트릭 안정화.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     ca-certificates \
     curl \
+    libreoffice-writer \
+    fonts-nanum \
     && rm -rf /var/lib/apt/lists/*
 
 # non-root 사용자 생성 (Kubernetes securityContext와 일치)

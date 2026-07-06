@@ -103,7 +103,7 @@ def upload_standard_documents():
                 file.save(str(file_path))
                 # 파일 권한 설정 (non-root 사용자를 위해)
                 try:
-                    os.chmod(file_path, 0o660)
+                    os.chmod(file_path, 0o600)
                 except (OSError, PermissionError):
                     pass  # 권한 설정 실패해도 계속 진행
                 

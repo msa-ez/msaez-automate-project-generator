@@ -682,7 +682,9 @@ class FirebaseSystem(StorageSystem):
         Returns:
             Dict[str, Any]: 변환된 데이터
         """
-        def process_value(value):
+        def process_value(value, _depth=0):
+            if _depth > 100:  # 방어적 재귀 깊이 제한(순환/과도 중첩 시 종료 보장)
+                return value
             if value is None:
                 return "@"  # null → 빈 문자열
             elif isinstance(value, list) and len(value) == 0:
@@ -690,13 +692,13 @@ class FirebaseSystem(StorageSystem):
             elif isinstance(value, dict) and len(value) == 0:
                 return {"@": True}  # 빈 객체 → 마커 객체
             elif isinstance(value, dict):
-                return {k: process_value(v) for k, v in value.items()}
+                return {k: process_value(v, _depth + 1) for k, v in value.items()}
             elif isinstance(value, list):
-                return [process_value(item) for item in value]
+                return [process_value(item, _depth + 1) for item in value]
             else:
                 return value
-        
-        return {k: process_value(v) for k, v in data.items()}
+
+        return {k: process_value(v, 1) for k, v in data.items()}
 
     def restore_data_from_storage(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Storage에서 가져온 데이터를 원본 형태로 복원 (Firebase 호환)"""
@@ -712,7 +714,9 @@ class FirebaseSystem(StorageSystem):
         Returns:
             Dict[str, Any]: 복원된 데이터
         """
-        def process_value(value):
+        def process_value(value, _depth=0):
+            if _depth > 100:  # 방어적 재귀 깊이 제한(순환/과도 중첩 시 종료 보장)
+                return value
             if value == "@":
                 return None  # 빈 문자열 → null
             elif isinstance(value, list) and value == ["@"]:
@@ -720,13 +724,13 @@ class FirebaseSystem(StorageSystem):
             elif isinstance(value, dict) and value == {"@": True}:
                 return {}  # 마커 객체 → 빈 객체
             elif isinstance(value, dict):
-                return {k: process_value(v) for k, v in value.items()}
+                return {k: process_value(v, _depth + 1) for k, v in value.items()}
             elif isinstance(value, list):
-                return [process_value(item) for item in value]
+                return [process_value(item, _depth + 1) for item in value]
             else:
                 return value
-        
-        return {k: process_value(v) for k, v in data.items()}
+
+        return {k: process_value(v, 1) for k, v in data.items()}
 
     # =============================================================================
     # 트랜잭션 메서드들

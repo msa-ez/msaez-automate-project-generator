@@ -91,7 +91,7 @@ def list_all_documents(category_filter: str = None):
                     structured = json.loads(metadata.get('structured_data'))
                     print(f"    구조화된 데이터:")
                     print(f"    {json.dumps(structured, ensure_ascii=False, indent=4)}")
-                except Exception as e:
+                except (ValueError, TypeError, KeyError) as e:
                     print(f"    구조화된 데이터 (파싱 실패): {metadata.get('structured_data')[:200]}...")
         
         print(f"\n{'=' * 80}")
@@ -101,7 +101,7 @@ def list_all_documents(category_filter: str = None):
             print(f"✅ 총 {filtered_count}개 문서 조회 완료")
         print(f"{'=' * 80}")
         
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:
         print(f"❌ 조회 실패: {e}")
         import traceback
         traceback.print_exc()
@@ -145,7 +145,7 @@ def search_documents(query: str, k: int = 5):
                 except (ValueError, TypeError):
                     pass
         
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:
         print(f"❌ 검색 실패: {e}")
         import traceback
         traceback.print_exc()

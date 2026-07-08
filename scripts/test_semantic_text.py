@@ -97,7 +97,7 @@ def test_semantic_text_generation():
             
             print()
     
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:
         print(f"❌ Error during test: {e}")
         import traceback
         traceback.print_exc()

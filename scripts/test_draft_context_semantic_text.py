@@ -151,7 +151,7 @@ def test_draft_context_semantic_text():
         print("✅ 테스트 완료")
         print(f"{'='*80}\n")
         
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:
         print(f"❌ 오류 발생: {e}")
         import traceback
         traceback.print_exc()

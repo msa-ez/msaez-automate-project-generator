@@ -2,29 +2,28 @@ import os
 from typing import Optional
 
 from .storage_system import StorageSystem
-from .firebase_system import FirebaseSystem
 from .acebase_system import AceBaseSystem
 from .postgres_storage_system import PostgresStorageSystem
 from ..utils.logging_util import LoggingUtil
 
 
 class StorageSystemFactory:
-    """Storage 시스템 팩토리 (환경에 따라 Firebase 또는 AceBase 선택)"""
-    
+    """Storage 시스템 팩토리 (환경에 따라 AceBase 또는 PostgreSQL 선택)"""
+
     _storage_system: Optional[StorageSystem] = None
-    
+
     @staticmethod
     def get_storage_type() -> str:
         """
         환경 변수에서 스토리지 타입 반환
-        
+
         Returns:
-            str: 'firebase' 또는 'acebase'
+            str: 'postgres' 또는 'acebase'
         """
-        storage_type = os.getenv('STORAGE_TYPE', 'firebase').lower()
-        if storage_type not in ['firebase', 'acebase', 'postgres']:
-            LoggingUtil.warning("storage_system_factory", f"알 수 없는 STORAGE_TYPE: {storage_type}, 기본값 'firebase' 사용")
-            return 'firebase'
+        storage_type = os.getenv('STORAGE_TYPE', 'postgres').lower()
+        if storage_type not in ['acebase', 'postgres']:
+            LoggingUtil.warning("storage_system_factory", f"알 수 없는 STORAGE_TYPE: {storage_type}, 기본값 'postgres' 사용")
+            return 'postgres'
         return storage_type
     
     @staticmethod
@@ -78,19 +77,8 @@ class StorageSystemFactory:
                 password=password
             )
         else:
-            # Firebase 초기화 (기본값)
-            service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
-            database_url = os.getenv("FIREBASE_DATABASE_URL")
-            
-            if not service_account_path or not database_url:
-                raise ValueError("Firebase 초기화를 위해 FIREBASE_SERVICE_ACCOUNT_PATH와 FIREBASE_DATABASE_URL이 필요합니다.")
-            
-            LoggingUtil.info("storage_system_factory", f"Firebase 시스템 초기화: {database_url}")
-            StorageSystemFactory._storage_system = FirebaseSystem.initialize(
-                service_account_path=service_account_path,
-                database_url=database_url
-            )
-        
+            raise ValueError(f"지원하지 않는 STORAGE_TYPE: {storage_type} (지원: acebase, postgres)")
+
         return StorageSystemFactory._storage_system
     
     @staticmethod

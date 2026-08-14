@@ -5,6 +5,7 @@ from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.systems.storage_system_factory import StorageSystemFactory
 from src.project_generator.utils.refs_trace_util import RefsTraceUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from src.project_generator.utils.llm_json_util import LlmJsonUtil
 import json
 import re
 from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
@@ -127,7 +128,13 @@ def generate_sitemap(state: SiteMapState) -> SiteMapState:
         language = "Korean"  # forced — natural-language outputs always Korean regardless of input
         
         llm = create_chat_llm(
-            temperature=0.2  # Frontend와 동일
+            temperature=0.2,  # Frontend와 동일
+            # JSON 강제. 없을 때 응답이 잘리면 json.loads 가
+            # "Unterminated string ..." 으로 실패한다 (summarizer 와 동일 이슈).
+            # 이 워크플로는 항상 JSON 만 기대하므로 인스턴스 단위로 걸어도 안전.
+            model_kwargs={
+                "response_format": {"type": "json_object"}
+            }
         )
         
         # 'ui' BC 필터링
@@ -246,19 +253,12 @@ RULES:
 - Exclude pure UI components (Header, Footer, Navbar)
 - Return ONLY JSON, no explanations"""
 
-        response = llm.invoke(prompt)
-        response_text = response.content
-        
         # JSON 파싱
         try:
-            # JSON 코드 블록 제거
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            parsed_json = json.loads(response_text)
-            
+            # 코드펜스 제거 + 파싱 실패 시 재호출
+            # (JSON 강제로도 출력 토큰 상한에 걸리면 잘릴 수 있어 재시도는 여전히 필요)
+            parsed_json = LlmJsonUtil.invoke_and_parse(llm, prompt, "SiteMapGenerator")
+
             # siteMap 필드 추출 (LLM이 { "siteMap": {...} } 형식으로 반환)
             new_site_map_data = parsed_json.get('siteMap', {})
             

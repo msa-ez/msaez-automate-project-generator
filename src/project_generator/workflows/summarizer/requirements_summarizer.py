@@ -16,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from src.project_generator.utils.llm_json_util import LlmJsonUtil
 from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 class SummarizerState(TypedDict):
@@ -44,6 +45,13 @@ class RequirementsSummarizerWorkflow:
             top_p=1.0,
             frequency_penalty=0.0,
             presence_penalty=0.0,
+            # JSON 강제. 없을 때 모델이 문자열 중간에서 응답을 끊어
+            # "Unterminated string starting at: line 4 column 21" 로 json.loads 가 실패했고,
+            # 재시도가 없어 청크 1개 실패가 전체 요약 중단으로 이어졌다.
+            # (requirements_validator / ddl_extractor 와 동일 설정)
+            model_kwargs={
+                "response_format": {"type": "json_object"}
+            },
             # P-GPT 게이트웨이가 간헐적으로 200으로 연결만 잡고 응답 본문을 안 보내는 경우
             # invoke 가 영원히 read 에서 block 됨. 이러면 main 의 except 가 안 타서
             # isFailed=True 가 기록되지 않고 프론트가 영구 대기함. hard timeout 으로 강제 종료.
@@ -169,11 +177,9 @@ Guidelines:
             from langchain_core.messages import HumanMessage
             messages = [HumanMessage(content=prompt)]
 
-            response = self.llm.invoke(messages).content
-            
-            response_clean = self._extract_json(response)
-            result_data = json.loads(response_clean)
-            
+            # 파싱 실패 시 재호출 (JSON 강제로도 출력 토큰 상한에 걸리면 잘릴 수 있음)
+            result_data = LlmJsonUtil.invoke_and_parse(self.llm, messages, "SummarizerWorkflow")
+
             LoggingUtil.info("SummarizerWorkflow", f"요약 완료: {len(result_data.get('summarizedRequirements', []))}개")
             
             return {

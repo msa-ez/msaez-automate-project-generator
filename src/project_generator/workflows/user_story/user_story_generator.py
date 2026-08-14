@@ -16,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from src.project_generator.config import Config
 from src.project_generator.utils.logging_util import LoggingUtil
 from src.project_generator.utils.llm_factory import create_chat_llm
+from src.project_generator.utils.llm_json_util import LlmJsonUtil
 from project_generator.utils.catchable_exceptions import CATCHABLE_EXCEPTIONS
 
 
@@ -72,6 +73,9 @@ class UserStoryWorkflow:
             frequency_penalty=0.0,  # model_kwargs → 직접 파라미터 ✅
             presence_penalty=0.0,  # model_kwargs → 직접 파라미터 ✅
             # max_tokens 설정 안 함 (Frontend도 없음)
+            # ⚠️ 여기에 response_format=json_object 를 걸면 안 됨. 이 워크플로는
+            # 텍스트 모드(가상 시나리오/짧은 입력)에서 자유형 응답을 그대로 쓰기 때문.
+            # JSON 강제는 JSON 파싱 분기에서만 bind 한다 (generate_user_stories 참조).
             # P-GPT 게이트웨이가 간헐적으로 응답을 반환하지 않는 경우가 있어 hard timeout 부여.
             # 청크 1개당 LLM 1콜이라 180s 면 충분. 초과 시 예외 → 프론트는 onFailed 받고 재시도 가능.
             timeout=180,
@@ -298,10 +302,9 @@ Please generate the json in valid json format and if there's a property its valu
 
             messages = [HumanMessage(content=prompt)]
 
-            response = self.llm.invoke(messages).content
-            
-            # 텍스트 모드일 때는 JSON 파싱 건너뛰기
+            # 텍스트 모드는 자유형 응답을 그대로 쓴다 (JSON 강제/파싱 없음)
             if is_text_mode:
+                response = self.llm.invoke(messages).content
                 return {
                     "userStories": [],
                     "actors": [],
@@ -316,11 +319,14 @@ Please generate the json in valid json format and if there's a property its valu
                     }]
                 }
             
-            # JSON 파싱
-            response_clean = self._extract_json(response)
-            
-            result_data = json.loads(response_clean)
-            
+            # JSON 분기에서만 JSON 강제 + 파싱 실패 시 재시도.
+            # (강제 없이 파싱하다 응답이 잘리면 "Unterminated string ..." 으로 청크 전체가 실패)
+            result_data = LlmJsonUtil.invoke_and_parse(
+                self.llm.bind(response_format={"type": "json_object"}),
+                messages,
+                "UserStoryGenerator"
+            )
+
             # camelCase로 응답 받음
             user_stories = result_data.get("userStories", [])
             actors = result_data.get("actors", [])

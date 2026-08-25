@@ -212,7 +212,7 @@ class RequirementsMappingWorkflow:
         if not requirements_text:
             return 0
         # XML-wrapped lines (<N>content</N>) 또는 raw 둘 다 처리
-        return len(re.findall(r'#####\s+\[[A-Za-z][\w-]*US-(?:FR|NFR)-\d+\]', requirements_text))
+        return len(re.findall(r'#####\s+\[(?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+\]', requirements_text))
 
     def _augment_under_covered_mapping(self, bounded_context, requirements_text, language, is_ui_bc, initial_reqs) -> list:
         """
@@ -763,7 +763,7 @@ If after honest re-review there really is nothing more, return an empty array.
 
                     # 헤더 or 표 row — user story ID 추출 → 본문으로 relocate
                     import re as _re_local
-                    us_match = _re_local.search(r'\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]', src_text)
+                    us_match = _re_local.search(r'\[((?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+)\]', src_text)
                     if not us_match:
                         # ID 없는 헤더 / TOC 표 — drop (e.g., '## 1. 사용자 스토리 목록')
                         continue
@@ -1071,4 +1071,3 @@ If after honest re-review there really is nothing more, return an empty array.
         
         result = self.workflow.invoke(initial_state)
         return result
-

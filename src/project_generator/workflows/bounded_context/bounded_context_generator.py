@@ -415,7 +415,7 @@ class BoundedContextWorkflow:
             user_story_text = req_dict.get("userStory", "") if isinstance(req_dict, dict) else ""
             if user_story_text:
                 # 모든 ##### [PROJ-US-FR/NFR-XXX] 헤더 + 제목 추출
-                pattern = re.compile(r'#####\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]\s+(.+?)\s*$', re.MULTILINE)
+                pattern = re.compile(r'#####\s+\[((?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+)\]\s+(.+?)\s*$', re.MULTILINE)
                 all_user_stories = pattern.findall(user_story_text)
 
                 if all_user_stories:
@@ -946,4 +946,3 @@ class BoundedContextWorkflow:
 }}
 </schema>
 </output_format>"""
-

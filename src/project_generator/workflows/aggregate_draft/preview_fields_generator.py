@@ -772,7 +772,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
         import re as _re_pf
         us_index = {}
         if raw_lines:
-            us_header_re = _re_pf.compile(r'^\s*#{4,6}\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]')
+            us_header_re = _re_pf.compile(r'^\s*#{4,6}\s+\[((?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+)\]')
             narrative_re = _re_pf.compile(r'^\s*>\s*\*?\s*As a')
             for i, ln in enumerate(raw_lines):
                 m = us_header_re.match(ln or '')
@@ -845,7 +845,7 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
                     continue
                 # header / table — user story id 추출 후 본문으로
                 # 브래킷 optional — TOC 표 row 는 브래킷 없이 PROJ-US-FR-XXX 만 나옴
-                m = _re_pf.search(r'\[?([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]?', src_text or '')
+                m = _re_pf.search(r'\[?((?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+)\]?', src_text or '')
                 if not m:
                     continue
                 target_line = us_index.get(m.group(1))
@@ -925,4 +925,3 @@ For each field in `previewFields`, include both `fieldName` (English name) and `
             'isCompleted': final_state.get('isCompleted', False),
             'isFailed': final_state.get('isFailed', False)
         }
-

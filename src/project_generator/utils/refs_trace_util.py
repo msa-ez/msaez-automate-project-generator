@@ -92,7 +92,7 @@ class RefsTraceUtil:
 
         # user story 본문 위치 인덱스 (1-회 계산)
         us_index = {}
-        us_header_re = re.compile(r'^\s*#{4,6}\s+\[([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]')
+        us_header_re = re.compile(r'^\s*#{4,6}\s+\[((?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+)\]')
         narrative_re = re.compile(r'^\s*>\s*\*?\s*As a')
         for i, ln in enumerate(line_contents):
             m = us_header_re.match(ln or '')
@@ -161,7 +161,7 @@ class RefsTraceUtil:
             if cls in ('empty', 'sep'):
                 continue
             # header / table — FR-ID 추출 (브래킷 optional — TOC 표 row 는 `| ... PROJ-US-FR-011 | ...` 처럼 브래킷 없음)
-            m = re.search(r'\[?([A-Za-z][\w-]*US-(?:FR|NFR)-\d+)\]?', src or '')
+            m = re.search(r'\[?((?:[A-Za-z][\w-]*-)?US-(?:FR|NFR)-\d+)\]?', src or '')
             if not m: continue
             target_line = us_index.get(m.group(1))
             if not target_line: continue
@@ -678,4 +678,3 @@ class RefsTraceUtil:
             import logging
             logging.error(f"[RefsTraceUtil] Invalid refs found in validateRefs: {invalid_refs}")
             raise ValueError(f"Invalid refs found in validateRefs: {invalid_refs}")
-
